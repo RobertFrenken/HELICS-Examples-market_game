@@ -15,9 +15,9 @@ from .policies import (
     PriceAwarePolicy,
     RollingPricePolicy,
 )
-from .simulator import run_episode
+from .simulator import HousePolicy, run_episode
 
-PolicyFactory = Callable[[], object]
+PolicyFactory = Callable[[], HousePolicy]
 
 
 @dataclass(frozen=True)

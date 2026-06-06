@@ -7,12 +7,19 @@ from dataclasses import dataclass, field
 from .config import DEFAULT_CONFIG, MarketGameConfig
 from .observations import (
     InferenceBelief,
+    InferenceFeatures,
     ObservationContext,
     ObservationMode,
     build_observation,
+    update_inference_belief,
 )
 from .policies import FollowDemandPolicy
-from .rules import BatteryAction, action_to_market_load, clamp_market_load, compute_price_from_average_load
+from .rules import (
+    BatteryAction,
+    action_to_market_load,
+    clamp_market_load,
+    compute_price_from_average_load,
+)
 from .simulator import BatteryState, HousePolicy, HourRecord
 
 
@@ -59,6 +66,7 @@ class MarketGameEnv:
         self.own_battery = BatteryState(config.initial_battery, config)
         self.opponent_batteries: list[BatteryState] = []
         self.inference_belief = InferenceBelief()
+        self.last_inference_features = InferenceFeatures()
 
     @property
     def house_count(self) -> int:
@@ -82,6 +90,7 @@ class MarketGameEnv:
             for _ in self.opponent_policies
         ]
         self.inference_belief.reset()
+        self.last_inference_features = InferenceFeatures()
         for policy in self.opponent_policies:
             reset = getattr(policy, "reset", None)
             if reset is not None:
@@ -94,47 +103,25 @@ class MarketGameEnv:
             raise RuntimeError("episode is already terminated; call reset()")
 
         base_demand = self.demand[self.hour]
-        own_market_load = action_to_market_load(
-            action,
-            base_demand,
-            self.own_battery.energy,
-            self.config,
-        )
-        self.own_battery.change(own_market_load - base_demand)
-        own_cost = self.current_price * own_market_load
-
-        opponent_loads: dict[str, float] = {}
+        own_market_load, own_cost = self._step_learner(action, base_demand)
+        opponent_loads, opponent_batteries = self._step_opponents(base_demand)
         total_market_load = own_market_load
-        for policy, battery in zip(self.opponent_policies, self.opponent_batteries):
-            proposed = policy.compute_demand(
-                self.current_price,
-                self.hour,
-                battery.energy,
-                self.demand,
-                self.price_history,
-            )
-            clamp = clamp_market_load(proposed, base_demand, battery.energy, self.config)
-            market_load = clamp.market_load
-            battery.change(market_load - base_demand)
-            opponent_loads[policy.name] = market_load
-            total_market_load += market_load
+        total_market_load += sum(opponent_loads.values())
 
         average_market_load = total_market_load / self.house_count
         next_price = compute_price_from_average_load(average_market_load)
         self.own_market_load_history.append(own_market_load)
         self.own_cost_history.append(own_cost)
 
-        record = HourRecord(
-            hour=self.hour,
-            price=self.current_price,
-            total_load=total_market_load,
-            average_load=average_market_load,
+        self._record_hour(
+            own_market_load=own_market_load,
+            own_cost=own_cost,
+            opponent_loads=opponent_loads,
+            opponent_batteries=opponent_batteries,
+            total_market_load=total_market_load,
+            average_market_load=average_market_load,
             next_price=next_price,
-            loads_by_house={"learner": own_market_load, **opponent_loads},
-            batteries_by_house={"learner": self.own_battery.energy},
-            costs_by_house={"learner": own_cost},
         )
-        self.records.append(record)
 
         reward = -own_cost
         self.current_price = next_price
@@ -143,10 +130,8 @@ class MarketGameEnv:
         truncated = False
         if not terminated:
             self.price_history.append(self.current_price)
-        elif self.final_battery_target is not None and self.final_battery_penalty:
-            reward -= self.final_battery_penalty * abs(
-                self.own_battery.energy - self.final_battery_target
-            )
+            self._update_inference_features()
+        reward = self._apply_terminal_penalty(reward, terminated)
 
         info = self._make_info(
             EnvStepDiagnostics(
@@ -160,6 +145,75 @@ class MarketGameEnv:
             )
         )
         return self._make_observation(), reward, terminated, truncated, info
+
+    def _step_learner(self, action: BatteryAction | int, base_demand: float) -> tuple[float, float]:
+        market_load = action_to_market_load(
+            action,
+            base_demand,
+            self.own_battery.energy,
+            self.config,
+        )
+        self.own_battery.change(market_load - base_demand)
+        cost = self.current_price * market_load
+        return market_load, cost
+
+    def _step_opponents(self, base_demand: float) -> tuple[dict[str, float], dict[str, float]]:
+        opponent_loads: dict[str, float] = {}
+        opponent_batteries: dict[str, float] = {}
+        for policy, battery in zip(self.opponent_policies, self.opponent_batteries):
+            proposed = policy.compute_demand(
+                self.current_price,
+                self.hour,
+                battery.energy,
+                self.demand,
+                self.price_history,
+            )
+            clamp = clamp_market_load(proposed, base_demand, battery.energy, self.config)
+            market_load = clamp.market_load
+            battery.change(market_load - base_demand)
+            opponent_loads[policy.name] = market_load
+            opponent_batteries[policy.name] = battery.energy
+        return opponent_loads, opponent_batteries
+
+    def _record_hour(
+        self,
+        own_market_load: float,
+        own_cost: float,
+        opponent_loads: dict[str, float],
+        opponent_batteries: dict[str, float],
+        total_market_load: float,
+        average_market_load: float,
+        next_price: float,
+    ) -> None:
+        self.records.append(
+            HourRecord(
+                hour=self.hour,
+                price=self.current_price,
+                total_load=total_market_load,
+                average_load=average_market_load,
+                next_price=next_price,
+                loads_by_house={"learner": own_market_load, **opponent_loads},
+                batteries_by_house={"learner": self.own_battery.energy, **opponent_batteries},
+                costs_by_house={"learner": own_cost},
+            )
+        )
+
+    def _apply_terminal_penalty(self, reward: float, terminated: bool) -> float:
+        if not terminated:
+            return reward
+        if self.final_battery_target is None or not self.final_battery_penalty:
+            return reward
+        return reward - self.final_battery_penalty * abs(
+            self.own_battery.energy - self.final_battery_target
+        )
+
+    def _update_inference_features(self) -> None:
+        if self.observation_mode != ObservationMode.INFERENCE:
+            return
+        self.last_inference_features = update_inference_belief(
+            self._make_context(),
+            self.inference_belief,
+        )
 
     def _make_context(self) -> ObservationContext:
         hour = min(self.hour, self.config.episode_hours - 1)
@@ -178,7 +232,7 @@ class MarketGameEnv:
         return build_observation(
             self.observation_mode,
             self._make_context(),
-            self.inference_belief,
+            self.last_inference_features,
         )
 
     def _make_info(self, diagnostics: EnvStepDiagnostics | None = None) -> dict[str, object]:

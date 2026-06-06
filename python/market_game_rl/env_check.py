@@ -3,20 +3,15 @@
 from __future__ import annotations
 
 from .env import MarketGameEnv
-from .observations import ObservationMode
+from .observations import ObservationMode, OBSERVATION_SCHEMAS
 from .policies import FlattenDemandPolicy, PriceAwarePolicy
 from .rules import BatteryAction
 
 
-EXPECTED_OBS_DIMS = {
-    ObservationMode.LOCAL: 5,
-    ObservationMode.PRICE_HISTORY: 10,
-    ObservationMode.INFERENCE: 16,
-}
-
-
 def run_env_smoke_check() -> None:
-    for mode, expected_dim in EXPECTED_OBS_DIMS.items():
+    for mode, schema in OBSERVATION_SCHEMAS.items():
+        expected_dim = len(schema)
+        assert expected_dim == len(set(schema)), mode
         env = MarketGameEnv(
             opponent_policies=[FlattenDemandPolicy(), PriceAwarePolicy()],
             observation_mode=mode,

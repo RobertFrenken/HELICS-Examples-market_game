@@ -22,6 +22,38 @@ class ObservationMode(str, Enum):
     INFERENCE = "inference"
 
 
+LOCAL_OBSERVATION_NAMES = [
+    "hour_sin",
+    "hour_cos",
+    "current_price",
+    "own_battery_charge",
+    "own_base_demand_now",
+]
+
+PRICE_HISTORY_OBSERVATION_NAMES = LOCAL_OBSERVATION_NAMES + [
+    "price_lag_1",
+    "price_lag_2",
+    "price_mean_recent",
+    "price_trend_recent",
+    "price_volatility_recent",
+]
+
+INFERENCE_OBSERVATION_NAMES = PRICE_HISTORY_OBSERVATION_NAMES + [
+    "inferred_avg_market_load_lag_1",
+    "inferred_others_avg_load_lag_1",
+    "inferred_crowd_delta_lag_1",
+    "estimated_crowd_battery",
+    "tier_distance",
+    "inverse_uncertainty",
+]
+
+OBSERVATION_SCHEMAS = {
+    ObservationMode.LOCAL: LOCAL_OBSERVATION_NAMES,
+    ObservationMode.PRICE_HISTORY: PRICE_HISTORY_OBSERVATION_NAMES,
+    ObservationMode.INFERENCE: INFERENCE_OBSERVATION_NAMES,
+}
+
+
 @dataclass
 class ObservationContext:
     """Legal information available to a house at one decision point."""
@@ -48,6 +80,20 @@ class InferenceBelief:
 
     def reset(self) -> None:
         self.crowd_battery = 0.0
+
+
+@dataclass(frozen=True)
+class InferenceFeatures:
+    inferred_average: float = 0.0
+    inferred_others_average: float = 0.0
+    inferred_crowd_delta: float = 0.0
+    crowd_battery: float = 0.0
+    tier_distance: float = 999.0
+    inverse_uncertainty: float = 0.0
+
+
+def observation_schema(mode: ObservationMode | str) -> list[str]:
+    return list(OBSERVATION_SCHEMAS[ObservationMode(mode)])
 
 
 def build_local_observation(context: ObservationContext) -> list[float]:
@@ -95,54 +141,67 @@ def build_price_history_observation(context: ObservationContext, window: int = 6
 
 def build_inference_observation(
     context: ObservationContext,
-    belief: InferenceBelief,
+    features: InferenceFeatures,
     window: int = 6,
 ) -> list[float]:
     """Build price-history features plus delayed aggregate inference features."""
-    inferred_average = 0.0
-    inferred_others_average = 0.0
-    inferred_crowd_delta = 0.0
-    tier_distance = 999.0
-    inverse_uncertainty = 0.0
-
-    if context.hour > 0 and context.own_market_load_history:
-        inverse = invert_price_to_average_load(context.price)
-        inferred_average = inverse.estimate
-        previous_own_load = context.own_market_load_history[-1]
-        inferred_others_average = estimate_others_average_load(
-            inferred_average,
-            previous_own_load,
-            context.house_count,
-        )
-        previous_base_demand = context.demand[context.hour - 1]
-        inferred_crowd_delta = inferred_others_average - previous_base_demand
-        belief.crowd_battery = min(
-            context.config.battery_capacity,
-            max(0.0, belief.crowd_battery + inferred_crowd_delta),
-        )
-        tier_distance = distance_to_nearest_pricing_threshold(inferred_average)
-        inverse_uncertainty = inverse.uncertainty
-
     return build_price_history_observation(context, window=window) + [
-        inferred_average,
-        inferred_others_average,
-        inferred_crowd_delta,
-        belief.crowd_battery,
-        tier_distance,
-        inverse_uncertainty,
+        features.inferred_average,
+        features.inferred_others_average,
+        features.inferred_crowd_delta,
+        features.crowd_battery,
+        features.tier_distance,
+        features.inverse_uncertainty,
     ]
+
+
+def update_inference_belief(
+    context: ObservationContext,
+    belief: InferenceBelief,
+) -> InferenceFeatures:
+    """Update delayed aggregate belief and return inference features.
+
+    This is intentionally separate from observation vector construction so the
+    state mutation is explicit at the environment boundary.
+    """
+    if context.hour <= 0 or not context.own_market_load_history:
+        return InferenceFeatures(crowd_battery=belief.crowd_battery)
+
+    inverse = invert_price_to_average_load(context.price)
+    inferred_average = inverse.estimate
+    previous_own_load = context.own_market_load_history[-1]
+    inferred_others_average = estimate_others_average_load(
+        inferred_average,
+        previous_own_load,
+        context.house_count,
+    )
+    previous_base_demand = context.demand[context.hour - 1]
+    inferred_crowd_delta = inferred_others_average - previous_base_demand
+    belief.crowd_battery = min(
+        context.config.battery_capacity,
+        max(0.0, belief.crowd_battery + inferred_crowd_delta),
+    )
+
+    return InferenceFeatures(
+        inferred_average=inferred_average,
+        inferred_others_average=inferred_others_average,
+        inferred_crowd_delta=inferred_crowd_delta,
+        crowd_battery=belief.crowd_battery,
+        tier_distance=distance_to_nearest_pricing_threshold(inferred_average),
+        inverse_uncertainty=inverse.uncertainty,
+    )
 
 
 def build_observation(
     mode: ObservationMode | str,
     context: ObservationContext,
-    belief: InferenceBelief | None = None,
+    inference_features: InferenceFeatures | None = None,
 ) -> list[float]:
     mode = ObservationMode(mode)
     if mode == ObservationMode.LOCAL:
         return build_local_observation(context)
     if mode == ObservationMode.PRICE_HISTORY:
         return build_price_history_observation(context)
-    if belief is None:
-        belief = InferenceBelief()
-    return build_inference_observation(context, belief)
+    if inference_features is None:
+        inference_features = InferenceFeatures()
+    return build_inference_observation(context, inference_features)

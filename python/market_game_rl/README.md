@@ -3,6 +3,9 @@
 This directory contains a pure-Python simulator and training/evaluation helpers
 for the HELICS market game.
 
+For module boundaries and dependency flow, see
+[`ARCHITECTURE.md`](ARCHITECTURE.md).
+
 It intentionally does not import from `python/market_game`.
 
 Reasons:
@@ -32,6 +35,7 @@ python/market_game_rl/
   simulator.py     pure state transition loop
   observations.py  legal observation builders
   env.py           dependency-free Gymnasium-style environment
+  ARCHITECTURE.md  package boundaries and dependency flow
   policies.py      baseline and heuristic policies
   features.py      legal feature helpers and formulas
   metrics.py       evaluation metrics
