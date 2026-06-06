@@ -30,11 +30,14 @@ python/market_game_rl/
   config.py        episode config and default constants
   rules.py         pricing, clamping, and discrete action conversion
   simulator.py     pure state transition loop
+  observations.py  legal observation builders
+  env.py           dependency-free Gymnasium-style environment
   policies.py      baseline and heuristic policies
   features.py      legal feature helpers and formulas
   metrics.py       evaluation metrics
   evaluate.py      CLI scenario runner
   parity_check.py  executable stock parity assertions
+  env_check.py     executable environment smoke checks
 ```
 
 ## Parity Check
@@ -74,6 +77,33 @@ The executable parity assertion is:
 ```bash
 python3 -m python.market_game_rl.parity_check
 ```
+
+The dependency-free environment smoke check is:
+
+```bash
+python3 -m python.market_game_rl.env_check
+```
+
+## Environment Interface
+
+`MarketGameEnv` is Gymnasium-like but does not require Gymnasium:
+
+```python
+obs, info = env.reset()
+obs, reward, terminated, truncated, info = env.step(action)
+```
+
+Actions use `BatteryAction`:
+
+```text
+-1  discharge
+ 0  neutral
+ 1  charge
+```
+
+The current terminal observation is built from the last valid episode hour.
+Hidden aggregate market values are available only in `info["diagnostics"]`,
+not in the observation vector.
 
 ## Feature Reference
 
