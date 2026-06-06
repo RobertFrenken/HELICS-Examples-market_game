@@ -36,6 +36,7 @@ python/market_game_rl/
   observations.py  legal observation builders
   env.py           dependency-free Gymnasium-style environment
   gym_env.py       optional Gymnasium adapter
+  train_rllib.py   minimal Ray RLlib PPO trainer
   ARCHITECTURE.md  package boundaries and dependency flow
   policies.py      baseline and heuristic policies
   features.py      legal feature helpers and formulas
@@ -44,6 +45,7 @@ python/market_game_rl/
   parity_check.py  executable stock parity assertions
   env_check.py     executable environment smoke checks
   gym_check.py     executable Gymnasium adapter checks
+  rllib_check.py   executable RLlib PPO smoke check
 ```
 
 ## Parity Check
@@ -95,6 +97,22 @@ The optional Gymnasium adapter smoke check is:
 ```bash
 python3 -m python.market_game_rl.gym_check
 ```
+
+The optional Ray RLlib smoke check is:
+
+```bash
+python3 -m python.market_game_rl.rllib_check
+```
+
+Run a short PPO training job:
+
+```bash
+python3 -m python.market_game_rl.train_rllib --iterations 1 --observation-mode price_history
+```
+
+Ray, RLlib, and Torch are offline-training dependencies only. Deployment should
+still use a self-contained `compute_demand(...)` policy with no Ray/Torch
+runtime dependency.
 
 ## Environment Interface
 

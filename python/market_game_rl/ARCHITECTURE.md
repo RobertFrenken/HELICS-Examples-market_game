@@ -33,12 +33,14 @@ config.py
 | `observations.py` | Named observation schemas and vector builders. |
 | `env.py` | Single-learner, Gymnasium-style environment. |
 | `gym_env.py` | Optional Gymnasium adapter around `MarketGameEnv`. |
+| `train_rllib.py` | Minimal Ray RLlib PPO trainer. |
 | `policies.py` | Baseline and heuristic policies. |
 | `metrics.py` | Evaluation metrics. |
 | `evaluate.py` | CSV scenario runner. |
 | `parity_check.py` | Assertions that pure simulation matches stock HELICS totals. |
 | `env_check.py` | Smoke checks for the environment API and observation schemas. |
 | `gym_check.py` | Smoke checks for the Gymnasium adapter. |
+| `rllib_check.py` | Smoke checks for RLlib PPO integration. |
 
 ## Simulator vs Environment
 
