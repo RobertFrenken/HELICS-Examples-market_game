@@ -35,6 +35,7 @@ python/market_game_rl/
   simulator.py     pure state transition loop
   observations.py  legal observation builders
   env.py           dependency-free Gymnasium-style environment
+  gym_env.py       optional Gymnasium adapter
   ARCHITECTURE.md  package boundaries and dependency flow
   policies.py      baseline and heuristic policies
   features.py      legal feature helpers and formulas
@@ -42,6 +43,7 @@ python/market_game_rl/
   evaluate.py      CLI scenario runner
   parity_check.py  executable stock parity assertions
   env_check.py     executable environment smoke checks
+  gym_check.py     executable Gymnasium adapter checks
 ```
 
 ## Parity Check
@@ -88,6 +90,12 @@ The dependency-free environment smoke check is:
 python3 -m python.market_game_rl.env_check
 ```
 
+The optional Gymnasium adapter smoke check is:
+
+```bash
+python3 -m python.market_game_rl.gym_check
+```
+
 ## Environment Interface
 
 `MarketGameEnv` is Gymnasium-like but does not require Gymnasium:
@@ -108,6 +116,15 @@ Actions use `BatteryAction`:
 The current terminal observation is built from the last valid episode hour.
 Hidden aggregate market values are available only in `info["diagnostics"]`,
 not in the observation vector.
+
+`GymMarketGameEnv` wraps the same environment for Gymnasium-compatible training
+libraries. It maps Gym's `Discrete(3)` action indices as:
+
+```text
+0  discharge
+1  neutral
+2  charge
+```
 
 ## Feature Reference
 
@@ -142,7 +159,7 @@ p(M) = 1.49 + 1.00 * (M - 13)       if M >= 13
 Inverse estimates:
 
 ```text
-if p = 0.10:      M is in (-inf, 3), estimate = 1.5
+if p = 0.10:      M is represented as [-10, 3), estimate = 1.5
 if 0.10 < p < .19: M = 3 + (p - 0.10) / 0.03
 if 0.19 <= p < .49: M = 6 + (p - 0.19) / 0.10
 if 0.49 <= p < 1.49: M = 9 + (p - 0.49) / 0.25

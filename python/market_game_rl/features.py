@@ -6,6 +6,7 @@ from dataclasses import dataclass
 
 
 PRICING_THRESHOLDS = (3.0, 6.0, 9.0, 13.0)
+FLAT_PRICE_INVERSE_LOW = -10.0
 
 
 @dataclass(frozen=True)
@@ -44,12 +45,13 @@ def invert_price_to_average_load(price: float) -> PriceInverse:
     The inverse feature estimates ``M`` from an observed delayed price.
 
     The flat low-price tier is lossy: price ``0.10`` means average load was
-    less than ``3.0``. For that case, return the midpoint estimate ``1.5`` and
-    expose the full interval.
+    less than ``3.0``. For that case, return estimate ``1.5`` and a finite
+    conservative interval. The lower bound reflects the current game's
+    one-hour max discharge scale and keeps RL observations finite.
     """
     eps = 1e-12
     if price <= 0.10 + eps:
-        return PriceInverse(estimate=1.5, low=float("-inf"), high=3.0)
+        return PriceInverse(estimate=1.5, low=FLAT_PRICE_INVERSE_LOW, high=3.0)
     if price < 0.19 - eps:
         m = 3.0 + (price - 0.10) / 0.03
         return PriceInverse(estimate=m, low=m, high=m)

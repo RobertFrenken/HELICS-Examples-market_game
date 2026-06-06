@@ -88,7 +88,7 @@ class InferenceFeatures:
     inferred_others_average: float = 0.0
     inferred_crowd_delta: float = 0.0
     crowd_battery: float = 0.0
-    tier_distance: float = 999.0
+    tier_distance: float = 100.0
     inverse_uncertainty: float = 0.0
 
 

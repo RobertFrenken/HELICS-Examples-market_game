@@ -32,11 +32,13 @@ config.py
 | `features.py` | Reusable legal feature math. |
 | `observations.py` | Named observation schemas and vector builders. |
 | `env.py` | Single-learner, Gymnasium-style environment. |
+| `gym_env.py` | Optional Gymnasium adapter around `MarketGameEnv`. |
 | `policies.py` | Baseline and heuristic policies. |
 | `metrics.py` | Evaluation metrics. |
 | `evaluate.py` | CSV scenario runner. |
 | `parity_check.py` | Assertions that pure simulation matches stock HELICS totals. |
 | `env_check.py` | Smoke checks for the environment API and observation schemas. |
+| `gym_check.py` | Smoke checks for the Gymnasium adapter. |
 
 ## Simulator vs Environment
 
