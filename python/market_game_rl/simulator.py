@@ -14,44 +14,15 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Protocol
 
-
-BATTERY_CAPACITY = 20.0
-BATTERY_MAX_DISCHARGE = 10.0
-BATTERY_MAX_CHARGE = 5.0
-INITIAL_BATTERY = 0.0
-INITIAL_PRICE = 0.5
-EPISODE_HOURS = 24
-
-PROFILE1_DEMAND = [
-    2,
-    1,
-    1,
-    1,
-    2,
-    4,
-    6,
-    8,
-    9,
-    7,
-    5,
-    4,
-    3,
-    4,
-    5,
-    7,
-    9,
-    12,
-    10,
-    7,
-    5,
-    4,
-    2,
-    2,
-]
+from .config import DEFAULT_CONFIG, MarketGameConfig
+from .rules import clamp_market_load, compute_price_from_average_load
 
 
 class HousePolicy(Protocol):
     name: str
+
+    def reset(self) -> None:
+        """Reset any episode-local policy state."""
 
     def compute_demand(
         self,
@@ -66,20 +37,21 @@ class HousePolicy(Protocol):
 
 @dataclass
 class BatteryState:
-    energy: float = INITIAL_BATTERY
+    energy: float
+    config: MarketGameConfig = DEFAULT_CONFIG
 
     def change(self, delta: float) -> None:
         if delta < 0.0:
             discharge = abs(delta)
             if discharge > self.energy:
                 raise ValueError("requested discharge exceeds current charge level")
-            if discharge > BATTERY_MAX_DISCHARGE:
+            if discharge > self.config.max_discharge:
                 raise ValueError("requested discharge exceeds maximum discharge rate")
             self.energy -= discharge
         else:
-            if self.energy + delta > BATTERY_CAPACITY:
+            if self.energy + delta > self.config.battery_capacity:
                 raise ValueError("requested charge exceeds maximum capacity")
-            if delta > BATTERY_MAX_CHARGE:
+            if delta > self.config.max_charge:
                 raise ValueError("requested charge rate exceeds maximum rate")
             self.energy += delta
 
@@ -87,12 +59,13 @@ class BatteryState:
 @dataclass
 class SimHouse:
     policy: HousePolicy
-    demand: list[float] = field(default_factory=lambda: list(PROFILE1_DEMAND))
-    battery: BatteryState = field(default_factory=BatteryState)
+    demand: list[float]
+    battery: BatteryState
     loads: list[float] = field(default_factory=list)
     costs: list[float] = field(default_factory=list)
     battery_history: list[float] = field(default_factory=list)
-    warnings: list[str] = field(default_factory=list)
+    boundary_warnings: list[str] = field(default_factory=list)
+    clamps: int = 0
 
     @property
     def total_cost(self) -> float:
@@ -128,63 +101,31 @@ class SimulationResult:
         return {house.policy.name: house.total_load for house in self.houses}
 
 
-def compute_price_from_average_load(average_load: float) -> float:
-    """Mirror ``market_maker.compute_new_price(total, feds)`` after averaging."""
-    m = average_load
-    if m < 3.0:
-        return 0.1
-    if m < 6.0:
-        return 0.1 + 0.03 * (m - 3.0)
-    if m < 9.0:
-        return 0.19 + 0.1 * (m - 6.0)
-    if m < 13.0:
-        return 0.49 + 0.25 * (m - 9.0)
-    return 1.49 + 1.0 * (m - 13.0)
-
-
-def compute_price_from_total_load(total_load: float, house_count: int) -> float:
-    if house_count == 0:
-        return 0.1
-    return compute_price_from_average_load(total_load / house_count)
-
-
-def clamp_market_load(value: float, base_demand: float, battery: BatteryState) -> tuple[float, str]:
-    """Mirror ``battery.ensure_valid`` and ``check_valid`` effective behavior.
-
-    Negative market-facing load is allowed when battery discharge supports it.
-    The comparison operators intentionally match the original code's inclusive
-    threshold behavior.
-    """
-    if value >= base_demand + (BATTERY_CAPACITY - battery.energy):
-        return base_demand + (BATTERY_CAPACITY - battery.energy), (
-            "listed battery charge rate exceeds available battery storage capacity"
-        )
-    if value >= base_demand + BATTERY_MAX_CHARGE:
-        return base_demand + BATTERY_MAX_CHARGE, (
-            "listed battery charge rate exceeds maximum charge rate"
-        )
-    if value <= base_demand - battery.energy:
-        return base_demand - battery.energy, "listed consumption exceeds available battery energy"
-    if value <= base_demand - BATTERY_MAX_DISCHARGE:
-        return base_demand - BATTERY_MAX_DISCHARGE, (
-            "listed consumption exceeds max battery discharge rate"
-        )
-    return value, ""
-
-
 def run_episode(
     policies: list[HousePolicy],
     demand_profile: list[float] | None = None,
-    initial_price: float = INITIAL_PRICE,
+    initial_price: float | None = None,
+    config: MarketGameConfig = DEFAULT_CONFIG,
 ) -> SimulationResult:
     """Run one 24-hour market-game episode."""
-    demand = list(demand_profile or PROFILE1_DEMAND)
-    houses = [SimHouse(policy=policy, demand=list(demand)) for policy in policies]
-    current_price = initial_price
+    demand = list(demand_profile or config.demand_profile)
+    current_price = config.initial_price if initial_price is None else initial_price
+    houses = []
+    for policy in policies:
+        reset = getattr(policy, "reset", None)
+        if reset is not None:
+            reset()
+        houses.append(
+            SimHouse(
+                policy=policy,
+                demand=list(demand),
+                battery=BatteryState(config.initial_battery, config),
+            )
+        )
     price_history: list[float] = []
     records: list[HourRecord] = []
 
-    for hour in range(EPISODE_HOURS):
+    for hour in range(config.episode_hours):
         price_history.append(current_price)
         total_load = 0.0
         loads_by_house: dict[str, float] = {}
@@ -200,19 +141,22 @@ def run_episode(
                 house.demand,
                 price_history,
             )
-            load, warning = clamp_market_load(proposed_load, base, house.battery)
-            if warning:
-                house.warnings.append(warning)
+            clamp = clamp_market_load(proposed_load, base, house.battery.energy, config)
+            market_load = clamp.market_load
+            if clamp.warning:
+                house.boundary_warnings.append(clamp.warning)
+            if market_load != proposed_load:
+                house.clamps += 1
 
-            house.battery.change(load - base)
-            cost = current_price * load
+            house.battery.change(market_load - base)
+            cost = current_price * market_load
 
-            house.loads.append(load)
+            house.loads.append(market_load)
             house.costs.append(cost)
             house.battery_history.append(house.battery.energy)
 
-            total_load += load
-            loads_by_house[house.policy.name] = load
+            total_load += market_load
+            loads_by_house[house.policy.name] = market_load
             batteries_by_house[house.policy.name] = house.battery.energy
             costs_by_house[house.policy.name] = cost
 
@@ -233,4 +177,3 @@ def run_episode(
         current_price = next_price
 
     return SimulationResult(houses=houses, records=records, price_history=price_history)
-
