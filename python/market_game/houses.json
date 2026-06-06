@@ -1,0 +1,35 @@
+{
+   "name": "house_evaluation",
+   "federates": [
+      {
+         "directory": "C:\\CodeProjects\\HELICS-Examples\\python\\market_game",
+         "host": "localhost",
+         "name": "broker",
+         "exec": "helics_broker -f 4 -t zmqss --ipv4 -p 23404 --loglevel=warning"
+      },
+      {
+         "directory": "C:\\CodeProjects\\HELICS-Examples\\python\\market_game",
+         "host": "localhost",
+         "name": "flatten_demand",
+         "exec": "python -u -m houses.flatten_demand_house --broker localhost:23404 --no-plot"
+      },
+      {
+         "directory": "C:\\CodeProjects\\HELICS-Examples\\python\\market_game",
+         "host": "localhost",
+         "name": "full_cycle",
+         "exec": "python -u -m houses.full_cycle_house --broker localhost:23404 --no-plot"
+      },
+      {
+         "directory": "C:\\CodeProjects\\HELICS-Examples\\python\\market_game",
+         "host": "localhost",
+         "name": "price_aware",
+         "exec": "python -u -m houses.price_aware_house --broker localhost:23404 --no-plot"
+      },
+      {
+         "directory": "C:\\CodeProjects\\HELICS-Examples\\python\\market_game",
+         "host": "localhost",
+         "name": "market_maker",
+         "exec": "python -u market_maker.py --auto --broker localhost:23404 --no-plot --profile profile1"
+      }
+   ]
+}
