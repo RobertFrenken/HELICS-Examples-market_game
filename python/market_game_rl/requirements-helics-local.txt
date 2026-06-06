@@ -1,0 +1,6 @@
+# Local HELICS example-run dependencies.
+#
+# These are useful for validating against the original python/market_game
+# federation, but are not required by the pure market_game_rl simulator.
+helics==3.6.1
+matplotlib==3.10.9

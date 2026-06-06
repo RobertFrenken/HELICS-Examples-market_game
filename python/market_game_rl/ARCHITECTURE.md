@@ -34,6 +34,7 @@ config.py
 | `env.py` | Single-learner, Gymnasium-style environment. |
 | `gym_env.py` | Optional Gymnasium adapter around `MarketGameEnv`. |
 | `train_rllib.py` | Minimal Ray RLlib PPO trainer. |
+| `check_all.py` | Unified smoke/check runner. |
 | `policies.py` | Baseline and heuristic policies. |
 | `metrics.py` | Evaluation metrics. |
 | `evaluate.py` | CSV scenario runner. |
@@ -41,6 +42,8 @@ config.py
 | `env_check.py` | Smoke checks for the environment API and observation schemas. |
 | `gym_check.py` | Smoke checks for the Gymnasium adapter. |
 | `rllib_check.py` | Smoke checks for RLlib PPO integration. |
+| `requirements-training.txt` | Optional Gym/Ray/Torch training dependencies. |
+| `requirements-helics-local.txt` | Optional HELICS local validation dependencies. |
 
 ## Simulator vs Environment
 
@@ -82,3 +85,12 @@ This split keeps state mutation visible at the environment boundary.
 Both `simulator.py` and `env.py` call the same `rules.py` functions. This keeps
 pricing, battery limits, clamping, and discrete battery action semantics aligned
 between baseline evaluation and RL training.
+
+## Dependency Tiers
+
+The pure simulator and dependency-free environment should remain usable without
+Gymnasium, Ray, Torch, HELICS, or matplotlib.
+
+Gymnasium and Ray/RLlib are offline training layers only. HELICS is used for
+local integration validation against the original example. Final deployment
+should be distilled back into a self-contained `compute_demand(...)` function.

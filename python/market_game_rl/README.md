@@ -38,6 +38,7 @@ python/market_game_rl/
   gym_env.py       optional Gymnasium adapter
   train_rllib.py   minimal Ray RLlib PPO trainer
   ARCHITECTURE.md  package boundaries and dependency flow
+  check_all.py     unified check runner
   policies.py      baseline and heuristic policies
   features.py      legal feature helpers and formulas
   metrics.py       evaluation metrics
@@ -46,6 +47,58 @@ python/market_game_rl/
   env_check.py     executable environment smoke checks
   gym_check.py     executable Gymnasium adapter checks
   rllib_check.py   executable RLlib PPO smoke check
+  requirements-training.txt     optional offline RL dependencies
+  requirements-helics-local.txt local HELICS validation dependencies
+```
+
+## Dependency Tiers
+
+Core pure simulator:
+
+- Requires only the Python standard library.
+- Covers `config.py`, `rules.py`, `simulator.py`, `features.py`,
+  `observations.py`, `env.py`, `policies.py`, `metrics.py`, and `evaluate.py`.
+
+Gymnasium adapter:
+
+- Requires `gymnasium` and `numpy`.
+- Install from `requirements-training.txt` if doing RL experiments.
+
+Ray RLlib training:
+
+- Requires Ray/RLlib and Torch.
+- Install with:
+
+```bash
+python3 -m pip install --user --break-system-packages -r python/market_game_rl/requirements-training.txt
+```
+
+Local HELICS validation:
+
+- Requires HELICS and matplotlib.
+- Install with:
+
+```bash
+python3 -m pip install --user --break-system-packages -r python/market_game_rl/requirements-helics-local.txt
+```
+
+Final deployment:
+
+- Should not depend on Gymnasium, Ray, Torch, HELICS, or model checkpoint files.
+- The intended final artifact is a self-contained `compute_demand(...)` policy.
+
+## Checks
+
+Run core checks:
+
+```bash
+python3 -m python.market_game_rl.check_all
+```
+
+Run core checks plus the heavier Ray RLlib smoke check:
+
+```bash
+python3 -m python.market_game_rl.check_all --include-rllib
 ```
 
 ## Parity Check
@@ -114,6 +167,12 @@ Ray, RLlib, and Torch are offline-training dependencies only. Deployment should
 still use a self-contained `compute_demand(...)` policy with no Ray/Torch
 runtime dependency.
 
+The RLlib command is a smoke-training integration test. It confirms that RLlib
+can collect complete 24-hour episodes and optimize without API errors. It is
+not evidence that the policy has learned a strong strategy yet. Ray 2.55 may
+print warnings about its new API stack; those warnings are expected for this
+minimal PPO setup.
+
 ## Environment Interface
 
 `MarketGameEnv` is Gymnasium-like but does not require Gymnasium:
@@ -143,6 +202,9 @@ libraries. It maps Gym's `Discrete(3)` action indices as:
 1  neutral
 2  charge
 ```
+
+Episode return is the negative learner cost, plus any optional terminal battery
+penalty configured for training.
 
 ## Feature Reference
 

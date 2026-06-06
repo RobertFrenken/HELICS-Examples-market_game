@@ -1,0 +1,7 @@
+# Offline RL training dependencies.
+#
+# These are not required by the pure simulator or by final compute_demand(...)
+# deployment. They are used for Gymnasium/RLlib training experiments only.
+gymnasium==1.2.2
+ray[rllib]==2.55.1
+torch==2.12.0

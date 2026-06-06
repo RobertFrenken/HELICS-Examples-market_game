@@ -25,7 +25,11 @@ GYM_ACTION_TO_BATTERY_ACTION = {
 
 
 def observation_bounds(mode: ObservationMode, config: MarketGameConfig) -> tuple[np.ndarray, np.ndarray]:
-    """Return conservative finite bounds for the selected observation schema."""
+    """Return conservative finite bounds for the selected observation schema.
+
+    These bounds are for Gymnasium/RL library compatibility, not strict claims
+    about every physically possible value in every future randomized scenario.
+    """
     low: list[float] = []
     high: list[float] = []
     for name in observation_schema(mode):

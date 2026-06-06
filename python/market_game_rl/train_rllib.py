@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import argparse
+import logging
+import os
 from typing import Any
 
 import ray
@@ -17,11 +19,16 @@ from .policies import FlattenDemandPolicy, PriceAwarePolicy
 ENV_NAME = "market_game_rl"
 
 
+def make_default_opponents() -> list:
+    """Return the fixed opponent population used by smoke training."""
+    return [FlattenDemandPolicy(), PriceAwarePolicy()]
+
+
 def make_env(env_config: dict[str, Any] | None = None) -> GymMarketGameEnv:
     env_config = env_config or {}
     observation_mode = env_config.get("observation_mode", ObservationMode.PRICE_HISTORY.value)
     return GymMarketGameEnv(
-        opponent_policies=[FlattenDemandPolicy(), PriceAwarePolicy()],
+        opponent_policies=make_default_opponents(),
         observation_mode=observation_mode,
         final_battery_target=env_config.get("final_battery_target"),
         final_battery_penalty=env_config.get("final_battery_penalty", 0.0),
@@ -73,8 +80,21 @@ def extract_training_summary(iteration: int, result: dict[str, Any]) -> dict[str
 
 
 def train(iterations: int, observation_mode: ObservationMode | str) -> list[dict[str, Any]]:
+    """Run a small PPO training job.
+
+    This is an integration/smoke-training entry point, not a tuned experiment.
+    The printed return is useful for confirming RLlib is collecting complete
+    24-hour episodes, but it should not be interpreted as a meaningful learned
+    policy result yet.
+    """
     register_env(ENV_NAME, make_env)
-    ray.init(ignore_reinit_error=True, include_dashboard=False, num_cpus=1)
+    os.environ.setdefault("RAY_ACCEL_ENV_VAR_OVERRIDE_ON_ZERO", "0")
+    ray.init(
+        ignore_reinit_error=True,
+        include_dashboard=False,
+        logging_level=logging.ERROR,
+        num_cpus=1,
+    )
     algorithm = build_ppo_config(observation_mode=observation_mode).build_algo()
     results = []
     try:
