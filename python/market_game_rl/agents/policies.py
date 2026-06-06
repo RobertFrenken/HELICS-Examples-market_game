@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-from .config import DEFAULT_CONFIG
+from ..core.config import DEFAULT_CONFIG
 from .features import (
     distance_to_nearest_pricing_threshold,
     estimate_others_average_load,

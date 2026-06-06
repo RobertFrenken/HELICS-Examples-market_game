@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from .observations import ObservationMode
-from .train_rllib import train
+from ..agents.observations import ObservationMode
+from ..training.train_rllib import train
 
 
 def run_rllib_smoke_check() -> None:

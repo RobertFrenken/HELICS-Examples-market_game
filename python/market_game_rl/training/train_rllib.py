@@ -11,9 +11,9 @@ import ray
 from ray.rllib.algorithms.ppo import PPOConfig
 from ray.tune.registry import register_env
 
-from .gym_env import GymMarketGameEnv
-from .observations import ObservationMode
-from .policies import FlattenDemandPolicy, PriceAwarePolicy
+from ..envs.gym_env import GymMarketGameEnv
+from ..agents.observations import ObservationMode
+from ..agents.policies import FlattenDemandPolicy, PriceAwarePolicy
 
 
 ENV_NAME = "market_game_rl"

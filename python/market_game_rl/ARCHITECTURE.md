@@ -11,47 +11,47 @@ files are HELICS integration scripts and some execute work at import time.
 ## Dependency Direction
 
 ```text
-config.py
-  -> rules.py
-  -> simulator.py
-  -> observations.py
-  -> env.py
-  -> evaluate.py / parity_check.py / env_check.py
+core/config.py
+  -> core/rules.py
+  -> core/simulator.py
+  -> agents/observations.py
+  -> envs/env.py
+  -> checks/evaluate.py / checks/parity_check.py / checks/env_check.py
 ```
 
-`policies.py` depends on `config.py` and `features.py`, and can be used by both
-`simulator.py` and `env.py`.
+`agents/policies.py` depends on `core/config.py` and `agents/features.py`, and
+can be used by both `core/simulator.py` and `envs/env.py`.
 
 ## Module Roles
 
 | Module | Role |
 |---|---|
-| `config.py` | Episode constants and `MarketGameConfig`. |
-| `rules.py` | Pure market rules: pricing, clamping, action-to-load conversion. |
-| `simulator.py` | Full-population episode replay for fixed policies. |
-| `features.py` | Reusable legal feature math. |
-| `observations.py` | Named observation schemas and vector builders. |
-| `env.py` | Single-learner, Gymnasium-style environment. |
-| `gym_env.py` | Optional Gymnasium adapter around `MarketGameEnv`. |
-| `train_rllib.py` | Minimal Ray RLlib PPO trainer. |
-| `check_all.py` | Unified smoke/check runner. |
-| `policies.py` | Baseline and heuristic policies. |
-| `metrics.py` | Evaluation metrics. |
-| `evaluate.py` | CSV scenario runner. |
-| `parity_check.py` | Assertions that pure simulation matches stock HELICS totals. |
-| `env_check.py` | Smoke checks for the environment API and observation schemas. |
-| `gym_check.py` | Smoke checks for the Gymnasium adapter. |
-| `rllib_check.py` | Smoke checks for RLlib PPO integration. |
+| `core/config.py` | Episode constants and `MarketGameConfig`. |
+| `core/rules.py` | Pure market rules: pricing, clamping, action-to-load conversion. |
+| `core/simulator.py` | Full-population episode replay for fixed policies. |
+| `core/metrics.py` | Evaluation metrics. |
+| `agents/features.py` | Reusable legal feature math. |
+| `agents/observations.py` | Named observation schemas and vector builders. |
+| `agents/policies.py` | Baseline and heuristic policies. |
+| `envs/env.py` | Single-learner, Gymnasium-style environment. |
+| `envs/gym_env.py` | Optional Gymnasium adapter around `MarketGameEnv`. |
+| `training/train_rllib.py` | Minimal Ray RLlib PPO trainer. |
+| `checks/check_all.py` | Unified smoke/check runner. |
+| `checks/evaluate.py` | CSV scenario runner. |
+| `checks/parity_check.py` | Assertions that pure simulation matches stock HELICS totals. |
+| `checks/env_check.py` | Smoke checks for the environment API and observation schemas. |
+| `checks/gym_check.py` | Smoke checks for the Gymnasium adapter. |
+| `checks/rllib_check.py` | Smoke checks for RLlib PPO integration. |
 | `requirements-training.txt` | Optional Gym/Ray/Torch training dependencies. |
 | `requirements-helics-local.txt` | Optional HELICS local validation dependencies. |
 
 ## Simulator vs Environment
 
-`run_episode()` in `simulator.py` runs a complete set of policies against each
+`run_episode()` in `core/simulator.py` runs a complete set of policies against each
 other. It is best for parity checks, baseline comparisons, and scenario
 evaluation.
 
-`MarketGameEnv` in `env.py` exposes one learner-facing action at a time:
+`MarketGameEnv` in `envs/env.py` exposes one learner-facing action at a time:
 
 ```python
 obs, info = env.reset()
@@ -65,7 +65,7 @@ history.
 
 ## Observation Flow
 
-`observations.py` defines named schemas:
+`agents/observations.py` defines named schemas:
 
 - `LOCAL_OBSERVATION_NAMES`
 - `PRICE_HISTORY_OBSERVATION_NAMES`
@@ -82,7 +82,7 @@ This split keeps state mutation visible at the environment boundary.
 
 ## Rule Sharing
 
-Both `simulator.py` and `env.py` call the same `rules.py` functions. This keeps
+Both `core/simulator.py` and `envs/env.py` call the same `core/rules.py` functions. This keeps
 pricing, battery limits, clamping, and discrete battery action semantics aligned
 between baseline evaluation and RL training.
 

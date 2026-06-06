@@ -30,25 +30,35 @@ The simulator mirrors the inspected game mechanics:
 
 ```text
 python/market_game_rl/
-  config.py        episode config and default constants
-  rules.py         pricing, clamping, and discrete action conversion
-  simulator.py     pure state transition loop
-  observations.py  legal observation builders
-  env.py           dependency-free Gymnasium-style environment
-  gym_env.py       optional Gymnasium adapter
-  train_rllib.py   minimal Ray RLlib PPO trainer
   ARCHITECTURE.md  package boundaries and dependency flow
-  check_all.py     unified check runner
-  policies.py      baseline and heuristic policies
-  features.py      legal feature helpers and formulas
-  metrics.py       evaluation metrics
-  evaluate.py      CLI scenario runner
-  parity_check.py  executable stock parity assertions
-  env_check.py     executable environment smoke checks
-  gym_check.py     executable Gymnasium adapter checks
-  rllib_check.py   executable RLlib PPO smoke check
   requirements-training.txt     optional offline RL dependencies
   requirements-helics-local.txt local HELICS validation dependencies
+
+  core/
+    config.py      episode config and default constants
+    rules.py       pricing, clamping, and discrete action conversion
+    simulator.py   pure state transition loop
+    metrics.py     evaluation metrics
+
+  agents/
+    policies.py      baseline and heuristic policies
+    features.py      legal feature helpers and formulas
+    observations.py  legal observation builders
+
+  envs/
+    env.py      dependency-free Gymnasium-style environment
+    gym_env.py  optional Gymnasium adapter
+
+  training/
+    train_rllib.py  minimal Ray RLlib PPO trainer
+
+  checks/
+    check_all.py     unified check runner
+    evaluate.py      CLI scenario runner
+    parity_check.py  executable stock parity assertions
+    env_check.py     executable environment smoke checks
+    gym_check.py     executable Gymnasium adapter checks
+    rllib_check.py   executable RLlib PPO smoke check
 ```
 
 ## Dependency Tiers
@@ -56,8 +66,8 @@ python/market_game_rl/
 Core pure simulator:
 
 - Requires only the Python standard library.
-- Covers `config.py`, `rules.py`, `simulator.py`, `features.py`,
-  `observations.py`, `env.py`, `policies.py`, `metrics.py`, and `evaluate.py`.
+- Covers `core/`, `agents/`, the dependency-free `envs/env.py`, and
+  `checks/evaluate.py`.
 
 Gymnasium adapter:
 
@@ -92,13 +102,13 @@ Final deployment:
 Run core checks:
 
 ```bash
-python3 -m python.market_game_rl.check_all
+python3 -m python.market_game_rl.checks.check_all
 ```
 
 Run core checks plus the heavier Ray RLlib smoke check:
 
 ```bash
-python3 -m python.market_game_rl.check_all --include-rllib
+python3 -m python.market_game_rl.checks.check_all --include-rllib
 ```
 
 ## Parity Check
@@ -106,7 +116,7 @@ python3 -m python.market_game_rl.check_all --include-rllib
 From the repo root:
 
 ```bash
-python3 -m python.market_game_rl.evaluate --stock
+python3 -m python.market_game_rl.checks.evaluate --stock
 ```
 
 Expected stock `profile1` output:
@@ -125,7 +135,7 @@ These values match a live HELICS run of the included example houses.
 From the repo root:
 
 ```bash
-python3 -m python.market_game_rl.evaluate
+python3 -m python.market_game_rl.checks.evaluate
 ```
 
 This prints CSV rows for the stock example, all-follow-demand baseline, and
@@ -136,31 +146,31 @@ and is the better constraint-quality metric.
 The executable parity assertion is:
 
 ```bash
-python3 -m python.market_game_rl.parity_check
+python3 -m python.market_game_rl.checks.parity_check
 ```
 
 The dependency-free environment smoke check is:
 
 ```bash
-python3 -m python.market_game_rl.env_check
+python3 -m python.market_game_rl.checks.env_check
 ```
 
 The optional Gymnasium adapter smoke check is:
 
 ```bash
-python3 -m python.market_game_rl.gym_check
+python3 -m python.market_game_rl.checks.gym_check
 ```
 
 The optional Ray RLlib smoke check is:
 
 ```bash
-python3 -m python.market_game_rl.rllib_check
+python3 -m python.market_game_rl.checks.rllib_check
 ```
 
 Run a short PPO training job:
 
 ```bash
-python3 -m python.market_game_rl.train_rllib --iterations 1 --observation-mode price_history
+python3 -m python.market_game_rl.training.train_rllib --iterations 1 --observation-mode price_history
 ```
 
 Ray, RLlib, and Torch are offline-training dependencies only. Deployment should

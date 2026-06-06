@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from .evaluate import stock_scenario
-from .simulator import run_episode
+from ..core.simulator import run_episode
 
 
 EXPECTED_STOCK = {

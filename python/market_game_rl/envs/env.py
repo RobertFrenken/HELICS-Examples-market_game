@@ -4,8 +4,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-from .config import DEFAULT_CONFIG, MarketGameConfig
-from .observations import (
+from ..core.config import DEFAULT_CONFIG, MarketGameConfig
+from ..agents.observations import (
     InferenceBelief,
     InferenceFeatures,
     ObservationContext,
@@ -13,14 +13,14 @@ from .observations import (
     build_observation,
     update_inference_belief,
 )
-from .policies import FollowDemandPolicy
-from .rules import (
+from ..agents.policies import FollowDemandPolicy
+from ..core.rules import (
     BatteryAction,
     action_to_market_load,
     clamp_market_load,
     compute_price_from_average_load,
 )
-from .simulator import BatteryState, HousePolicy, HourRecord
+from ..core.simulator import BatteryState, HousePolicy, HourRecord
 
 
 @dataclass

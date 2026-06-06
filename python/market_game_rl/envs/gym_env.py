@@ -9,12 +9,12 @@ import gymnasium as gym
 import numpy as np
 from gymnasium import spaces
 
-from .config import DEFAULT_CONFIG, MarketGameConfig
+from ..core.config import DEFAULT_CONFIG, MarketGameConfig
 from .env import MarketGameEnv
-from .observations import ObservationMode, observation_schema
-from .policies import FollowDemandPolicy
-from .rules import BatteryAction
-from .simulator import HousePolicy
+from ..agents.observations import ObservationMode, observation_schema
+from ..agents.policies import FollowDemandPolicy
+from ..core.rules import BatteryAction
+from ..core.simulator import HousePolicy
 
 
 GYM_ACTION_TO_BATTERY_ACTION = {
