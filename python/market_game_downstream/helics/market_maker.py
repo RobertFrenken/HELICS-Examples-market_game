@@ -100,7 +100,7 @@ def apply_hour_results(feds: list[SubFed], results: list[HouseHourResult], hour:
             print(
                 f"invalid demand received for fed {fed.name}={result.proposed_market_load} "
                 f"vs {result.market_load} warning={result.warning}, recalculating with new value "
-                f"and assessing penalty"
+                f"and assessing penalty={result.penalty_cost}"
             )
         fed.consume.append(result.market_load)
         fed.hourCost.append(result.cost)

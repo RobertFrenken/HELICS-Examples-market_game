@@ -77,7 +77,87 @@ def run_shared_core_check() -> None:
     assert results[0].market_load == 2.0
     assert record.proposed_loads_by_house["test"] == -1.0
     assert record.loads_by_house["test"] == 2.0
+    assert results[0].energy_cost == 1.0
+    assert results[0].penalty_cost == 60.0
+    assert results[0].invalid_load_adjustment == 3.0
+    assert results[0].cost == 61.0
+    assert record.energy_costs_by_house["test"] == 1.0
+    assert record.penalties_by_house["test"] == 60.0
+    assert record.invalid_load_adjustments_by_house["test"] == 3.0
     assert record.warnings_by_house["test"] == "listed consumption exceeds available battery energy"
+
+    battery = BatteryState(0.0)
+    _, results = step_market_hour(
+        hour=0,
+        price=0.5,
+        house_inputs=[
+            HouseHourInput(
+                name="over_charge_rate",
+                proposed_market_load=100.0,
+                base_demand=2.0,
+                battery=battery,
+            )
+        ],
+    )
+    assert results[0].market_load == 7.0
+    assert battery.energy == 5.0
+    assert results[0].warning == "listed battery charge rate exceeds maximum charge rate"
+    assert results[0].penalty_cost == 1860.0
+    assert results[0].invalid_load_adjustment == 93.0
+
+    battery = BatteryState(19.0)
+    _, results = step_market_hour(
+        hour=0,
+        price=0.5,
+        house_inputs=[
+            HouseHourInput(
+                name="over_capacity",
+                proposed_market_load=100.0,
+                base_demand=2.0,
+                battery=battery,
+            )
+        ],
+    )
+    assert results[0].market_load == 3.0
+    assert battery.energy == 20.0
+    assert results[0].warning == "listed battery charge rate exceeds available battery storage capacity"
+
+    battery = BatteryState(20.0)
+    _, results = step_market_hour(
+        hour=0,
+        price=0.5,
+        house_inputs=[
+            HouseHourInput(
+                name="over_discharge_rate",
+                proposed_market_load=-100.0,
+                base_demand=12.0,
+                battery=battery,
+            )
+        ],
+    )
+    assert results[0].market_load == 2.0
+    assert battery.energy == 10.0
+    assert results[0].warning == "listed consumption exceeds max battery discharge rate"
+    assert results[0].penalty_cost == 2040.0
+    assert results[0].invalid_load_adjustment == 102.0
+
+    battery = BatteryState(0.0)
+    _, results = step_market_hour(
+        hour=0,
+        price=0.5,
+        house_inputs=[
+            HouseHourInput(
+                name="exact_charge_boundary",
+                proposed_market_load=7.0,
+                base_demand=2.0,
+                battery=battery,
+            )
+        ],
+    )
+    assert results[0].market_load == 7.0
+    assert results[0].warning == ""
+    assert results[0].penalty_cost == 0.0
+    assert results[0].invalid_load_adjustment == 0.0
     try:
         step_market_hour(
             hour=0,

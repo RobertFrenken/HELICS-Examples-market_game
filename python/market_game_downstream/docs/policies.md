@@ -31,11 +31,10 @@ own battery charge, the demand profile, and price history.
 
 ## Notes
 
-`boundary_warnings` in simulator output mirror the inclusive warning behavior
-from the original helper functions. A policy can get warnings when it asks for
-an exact boundary value even if the effective market load is unchanged.
-`clamps` is usually the better signal for whether a policy requested a value
-that changed after validation.
+`boundary_warnings` in simulator output record submitted values outside the
+legal battery range. Exact boundary values are valid. `clamps` is usually the
+better signal for whether a policy requested a value that changed after
+validation.
 
 Exported competition submissions should not import these classes directly. Use
 them for local evaluation, then export or hand-write a self-contained

@@ -50,12 +50,12 @@ python3 -m python.market_game_downstream.rl.evaluate
 ```
 
 This prints CSV rows for the stock example, all-follow-demand baseline, and
-early heuristic mixes. `boundary_warnings` mirrors the original inclusive
-warning behavior. `clamps` counts effective value changes and is the better
-constraint-quality metric.
+early heuristic mixes. `boundary_warnings` records invalid submitted values.
+`clamps` counts effective value changes and is the better constraint-quality
+metric.
 
-Invalid demand handling and the current clamp-order edge case are documented in
-`invalid_demand_behavior.md`.
+Invalid demand handling, penalty accounting, adjustment diagnostics, and
+combined-bound clamping are documented in `invalid_demand_behavior.md`.
 
 Pure simulations may also be built directly with `python.market_game_downstream.core`:
 

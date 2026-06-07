@@ -1,32 +1,37 @@
-# Invalid Demand Behavior and Clamp Bug
+# Invalid Demand Behavior, Penalty, and Clamp Bug
 
 **First PR candidate:** this behavior should be documented and tested in one of
 the first upstream PRs, ideally with the dependency-free market rules/simulator
-and parity checks. The clamp-order edge case should be fixed before relying on
-the simulator as the authoritative validation path.
+and parity checks. The downstream simulator now clamps with combined legal
+bounds so validation always returns a battery-safe market load.
 
 ## Current Intended Behavior
 
-When a policy returns an impossible market load, the market maker does not add
-an explicit dollar penalty. The submitted value is clamped back into the legal
-battery range, the policy receives the effective clamped outcome, and cost is
-computed from that clamped market load:
+When a policy returns an impossible market load, the submitted value is clamped
+back into the legal battery range, the policy receives the effective clamped
+outcome, and an explicit invalid-demand penalty is added to the clamped energy
+cost:
 
 ```text
 proposed_market_load
   -> clamp to battery constraints
   -> market_load
-  -> cost = price * market_load
+  -> energy_cost = price * market_load
+  -> penalty_cost = 20 * abs(proposed_market_load - market_load)
+  -> cost = energy_cost + penalty_cost
 ```
 
 The simulator records two diagnostics:
 
 - `boundary_warnings`: warning strings from the original validation helper.
 - `clamps`: count of hours where `market_load != proposed_market_load`.
+- `invalid_load_adjustment`: absolute difference between proposed and effective
+  market load.
+- `penalty_cost`: dollar penalty for invalid submissions.
 
 `clamps` is the better signal for whether the policy actually requested a value
-that changed after validation. `boundary_warnings` mirror the original
-inclusive helper behavior and can be emitted at exact legal boundaries.
+that changed after validation. Exact legal boundary values are valid and do not
+emit warnings.
 
 ## Charging Past Capacity
 
@@ -48,11 +53,13 @@ Effective result:
 market_load = 3
 battery_charge becomes 20
 cost = price * 3
+invalid_load_adjustment = abs(100 - 3)
+penalty_cost = 20 * invalid_load_adjustment
 warning = listed battery charge rate exceeds available battery storage capacity
 ```
 
-There is no extra implemented penalty beyond losing the impossible extra
-charge. The house pays only for the clamped effective market load.
+The house pays for the clamped effective market load plus the invalid-demand
+penalty.
 
 ## Discharging Without Energy
 
@@ -73,27 +80,41 @@ Effective result:
 market_load = 2
 battery_charge stays 0
 cost = price * 2
+invalid_load_adjustment = abs(-100 - 2)
+penalty_cost = 20 * invalid_load_adjustment
 warning = listed consumption exceeds available battery energy
 ```
 
-Again, there is no extra implemented dollar penalty. The policy simply does not
-get credit for impossible discharge.
+Again, the house gets no credit for impossible discharge and pays the
+invalid-demand penalty.
 
-## Misleading HELICS Log Message
+## Upstream Penalty Fix
 
-The downstream HELICS mirror currently prints a message ending with:
+The original upstream market maker computed:
 
 ```text
-and assessing penalty
+penaltyCost = 20 * abs(load - valid_load)
 ```
 
-No such penalty is implemented in the shared simulator path or the downstream
-HELICS market-maker accounting. That message should be corrected or paired with
-an actual explicit penalty rule.
+but did not add that value to `fed.hourCost`; the recorded hourly cost was still
+`load * current_price` after clamping. The intended fix is to add
+`penaltyCost` to `fed.hourCost` so invalid submissions are strictly worse than
+valid boundary actions.
 
-## Known Clamp-Order Bug
+## HELICS Log Message
 
-The current clamp function checks capacity/available-energy limits before
+The downstream HELICS mirror prints invalid-demand messages ending with:
+
+```text
+and assessing penalty=<penalty_cost>
+```
+
+The downstream HELICS `hourCost` total includes the clamped energy cost and the
+invalid-demand penalty.
+
+## Fixed Clamp-Order Bug
+
+The original helper checked capacity/available-energy limits before
 charge/discharge-rate limits:
 
 ```python
@@ -107,8 +128,8 @@ if market_load <= base_demand - max_discharge:
     ...
 ```
 
-That order can return a clamped value that still violates the hourly rate limit
-when a proposed value violates both constraints.
+That order could return a clamped value that still violated the hourly rate
+limit when a proposed value violated both constraints.
 
 Example over-charge case:
 
@@ -120,15 +141,15 @@ max_charge = 5
 proposed_market_load = 100
 ```
 
-The first capacity clamp returns:
+The old first capacity clamp returned:
 
 ```text
 market_load = 22
 delta = +20
 ```
 
-That still exceeds the max charge rate of `5`, so the subsequent battery update
-can raise:
+That still exceeded the max charge rate of `5`, so the subsequent battery
+update could raise:
 
 ```text
 ValueError: requested charge rate exceeds maximum rate
@@ -143,21 +164,21 @@ max_discharge = 10
 proposed_market_load = -100
 ```
 
-The available-energy clamp returns:
+The old available-energy clamp returned:
 
 ```text
 market_load = -8
 delta = -20
 ```
 
-That still exceeds the max discharge rate of `10`, so the battery update can
+That still exceeded the max discharge rate of `10`, so the battery update could
 raise:
 
 ```text
 ValueError: requested discharge exceeds maximum discharge rate
 ```
 
-## Recommended Fix
+## Implemented Fix
 
 Compute the legal lower and upper market-load bounds by combining all
 constraints, then clamp once:
@@ -171,10 +192,10 @@ market_load = min(max(proposed_market_load, lower), upper)
 The warning can then describe the violated constraint, but the returned
 `market_load` should always be safe for `BatteryState.change(...)`.
 
-The first PR should include direct tests for:
+The downstream checks include direct tests for:
 
 - over capacity near full battery
 - over charge rate with empty battery
 - over discharge with empty battery
 - over discharge rate with charged battery
-- exact-boundary behavior, so warnings vs clamps are intentionally documented
+- exact-boundary behavior, so valid boundary values are intentionally documented

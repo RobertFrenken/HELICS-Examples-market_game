@@ -109,6 +109,9 @@ class HouseHourResult:
     base_demand: float
     battery_charge: float
     cost: float
+    energy_cost: float
+    penalty_cost: float = 0.0
+    invalid_load_adjustment: float = 0.0
     warning: str = ""
 
 
@@ -152,6 +155,9 @@ class HourRecord:
     loads_by_house: dict[str, float]
     batteries_by_house: dict[str, float]
     costs_by_house: dict[str, float]
+    energy_costs_by_house: dict[str, float] = field(default_factory=dict)
+    penalties_by_house: dict[str, float] = field(default_factory=dict)
+    invalid_load_adjustments_by_house: dict[str, float] = field(default_factory=dict)
     proposed_loads_by_house: dict[str, float] = field(default_factory=dict)
     warnings_by_house: dict[str, str] = field(default_factory=dict)
 
@@ -290,7 +296,10 @@ def step_market_hour(
         )
         market_load = clamp.market_load
         item.battery.change(market_load - item.base_demand)
-        cost = price * market_load
+        energy_cost = price * market_load
+        invalid_load_adjustment = abs(item.proposed_market_load - market_load)
+        penalty_cost = 20.0 * invalid_load_adjustment if clamp.warning else 0.0
+        cost = energy_cost + penalty_cost
         total_market_load += market_load
         house_results.append(
             HouseHourResult(
@@ -300,6 +309,9 @@ def step_market_hour(
                 base_demand=item.base_demand,
                 battery_charge=item.battery.energy,
                 cost=cost,
+                energy_cost=energy_cost,
+                penalty_cost=penalty_cost,
+                invalid_load_adjustment=invalid_load_adjustment,
                 warning=clamp.warning,
             )
         )
@@ -316,6 +328,15 @@ def step_market_hour(
         loads_by_house={result.name: result.market_load for result in house_results},
         batteries_by_house={result.name: result.battery_charge for result in house_results},
         costs_by_house={result.name: result.cost for result in house_results},
+        energy_costs_by_house={result.name: result.energy_cost for result in house_results},
+        penalties_by_house={
+            result.name: result.penalty_cost for result in house_results if result.penalty_cost
+        },
+        invalid_load_adjustments_by_house={
+            result.name: result.invalid_load_adjustment
+            for result in house_results
+            if result.invalid_load_adjustment
+        },
         proposed_loads_by_house={
             result.name: result.proposed_market_load for result in house_results
         },

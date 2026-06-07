@@ -128,15 +128,15 @@ Policy behavior is documented both in class docstrings and in:
 python/market_game_downstream/docs/policies.md
 ```
 
-Invalid demand behavior and the current clamp-order edge-case bug are
+Invalid demand behavior and the combined-bound clamp behavior are
 documented in:
 
 ```text
 python/market_game_downstream/docs/invalid_demand_behavior.md
 ```
 
-That note is marked as first-PR material because the bug affects the shared
-rules/simulator layer.
+That note is marked as first-PR material because invalid-demand accounting
+affects the shared rules/simulator layer.
 
 ## Export Layer Direction
 

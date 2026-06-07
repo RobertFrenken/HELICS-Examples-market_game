@@ -63,29 +63,32 @@ def clamp_market_load(
     _finite_number(market_load, "market_load")
     _finite_number(base_demand, "base_demand")
     _finite_number(battery_charge, "battery_charge")
-    if market_load >= base_demand + (config.battery_capacity - battery_charge):
-        return ClampResult(
-            base_demand + (config.battery_capacity - battery_charge),
-            "listed battery charge rate exceeds available battery storage capacity",
-        )
-    if market_load >= base_demand + config.max_charge:
-        return ClampResult(
-            base_demand + config.max_charge,
-            "listed battery charge rate exceeds maximum charge rate",
-        )
-    if market_load <= base_demand - battery_charge:
-        return ClampResult(
-            base_demand - battery_charge,
-            "listed consumption exceeds available battery energy",
-        )
-    if market_load <= base_demand - config.max_discharge:
-        return ClampResult(
-            base_demand - config.max_discharge,
-            "listed consumption exceeds max battery discharge rate",
-        )
-    if not config.allow_negative_load and market_load < 0.0:
-        return ClampResult(0.0, "listed market load is negative")
-    return ClampResult(market_load)
+    remaining_capacity = config.battery_capacity - battery_charge
+    max_charge_delta = min(config.max_charge, remaining_capacity)
+    max_discharge_delta = min(config.max_discharge, battery_charge)
+    upper_bound = base_demand + max_charge_delta
+    lower_bound = base_demand - max_discharge_delta
+    if not config.allow_negative_load:
+        lower_bound = max(0.0, lower_bound)
+
+    warning = ""
+    if market_load > upper_bound:
+        if remaining_capacity < config.max_charge:
+            warning = "listed battery charge rate exceeds available battery storage capacity"
+        else:
+            warning = "listed battery charge rate exceeds maximum charge rate"
+    elif market_load < lower_bound:
+        if not config.allow_negative_load and lower_bound == 0.0 and market_load < 0.0:
+            warning = "listed market load is negative"
+        elif battery_charge < config.max_discharge:
+            warning = "listed consumption exceeds available battery energy"
+        else:
+            warning = "listed consumption exceeds max battery discharge rate"
+    elif not config.allow_negative_load and market_load < 0.0:
+        warning = "listed market load is negative"
+
+    clamped = min(max(market_load, lower_bound), upper_bound)
+    return ClampResult(clamped, warning)
 
 
 def action_to_market_load(

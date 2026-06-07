@@ -325,3 +325,5 @@ Good next steps are:
 4. Add a held-out scenario config for distillation validation.
 5. Compare distilled policies against `PriceAwarePolicy`, `RollingPricePolicy`,
    and `LegalInferencePolicy` as standard baselines.
+
+The working plan for these items is in `rl_tuning_plan.md`.
