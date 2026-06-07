@@ -17,10 +17,8 @@ from ..agents.policies import FollowDemandPolicy
 from ..core.rules import (
     BatteryAction,
     action_to_market_load,
-    clamp_market_load,
-    compute_price_from_average_load,
 )
-from ..core.simulator import BatteryState, HousePolicy, HourRecord
+from ..core.simulator import BatteryState, HouseHourInput, HousePolicy, HourRecord, step_market_hour
 
 
 @dataclass
@@ -103,28 +101,41 @@ class MarketGameEnv:
             raise RuntimeError("episode is already terminated; call reset()")
 
         base_demand = self.demand[self.hour]
-        own_market_load, own_cost = self._step_learner(action, base_demand)
-        opponent_loads, opponent_batteries = self._step_opponents(base_demand)
-        total_market_load = own_market_load
-        total_market_load += sum(opponent_loads.values())
+        own_proposed_load = action_to_market_load(
+            action,
+            base_demand,
+            self.own_battery.energy,
+            self.config,
+        )
+        hour_inputs = [
+            HouseHourInput(
+                name="learner",
+                proposed_market_load=own_proposed_load,
+                base_demand=base_demand,
+                battery=self.own_battery,
+            )
+        ]
+        hour_inputs.extend(self._opponent_hour_inputs(base_demand))
+        record, house_results = step_market_hour(
+            hour=self.hour,
+            price=self.current_price,
+            house_inputs=hour_inputs,
+            config=self.config,
+        )
+        own_result = house_results[0]
+        opponent_loads = {
+            result.name: result.market_load for result in house_results[1:]
+        }
 
-        average_market_load = total_market_load / self.house_count
-        next_price = compute_price_from_average_load(average_market_load)
+        own_market_load = own_result.market_load
+        own_cost = own_result.cost
         self.own_market_load_history.append(own_market_load)
         self.own_cost_history.append(own_cost)
 
-        self._record_hour(
-            own_market_load=own_market_load,
-            own_cost=own_cost,
-            opponent_loads=opponent_loads,
-            opponent_batteries=opponent_batteries,
-            total_market_load=total_market_load,
-            average_market_load=average_market_load,
-            next_price=next_price,
-        )
+        self.records.append(record)
 
         reward = -own_cost
-        self.current_price = next_price
+        self.current_price = record.next_price
         self.hour += 1
         terminated = self.hour >= self.config.episode_hours
         truncated = False
@@ -138,28 +149,16 @@ class MarketGameEnv:
                 own_market_load=own_market_load,
                 own_cost=own_cost,
                 own_battery=self.own_battery.energy,
-                total_market_load=total_market_load,
-                average_market_load=average_market_load,
-                next_price=next_price,
+                total_market_load=record.total_load,
+                average_market_load=record.average_load,
+                next_price=record.next_price,
                 opponent_loads=opponent_loads,
             )
         )
         return self._make_observation(), reward, terminated, truncated, info
 
-    def _step_learner(self, action: BatteryAction | int, base_demand: float) -> tuple[float, float]:
-        market_load = action_to_market_load(
-            action,
-            base_demand,
-            self.own_battery.energy,
-            self.config,
-        )
-        self.own_battery.change(market_load - base_demand)
-        cost = self.current_price * market_load
-        return market_load, cost
-
-    def _step_opponents(self, base_demand: float) -> tuple[dict[str, float], dict[str, float]]:
-        opponent_loads: dict[str, float] = {}
-        opponent_batteries: dict[str, float] = {}
+    def _opponent_hour_inputs(self, base_demand: float) -> list[HouseHourInput]:
+        hour_inputs: list[HouseHourInput] = []
         for policy, battery in zip(self.opponent_policies, self.opponent_batteries):
             proposed = policy.compute_demand(
                 self.current_price,
@@ -168,35 +167,15 @@ class MarketGameEnv:
                 self.demand,
                 self.price_history,
             )
-            clamp = clamp_market_load(proposed, base_demand, battery.energy, self.config)
-            market_load = clamp.market_load
-            battery.change(market_load - base_demand)
-            opponent_loads[policy.name] = market_load
-            opponent_batteries[policy.name] = battery.energy
-        return opponent_loads, opponent_batteries
-
-    def _record_hour(
-        self,
-        own_market_load: float,
-        own_cost: float,
-        opponent_loads: dict[str, float],
-        opponent_batteries: dict[str, float],
-        total_market_load: float,
-        average_market_load: float,
-        next_price: float,
-    ) -> None:
-        self.records.append(
-            HourRecord(
-                hour=self.hour,
-                price=self.current_price,
-                total_load=total_market_load,
-                average_load=average_market_load,
-                next_price=next_price,
-                loads_by_house={"learner": own_market_load, **opponent_loads},
-                batteries_by_house={"learner": self.own_battery.energy, **opponent_batteries},
-                costs_by_house={"learner": own_cost},
+            hour_inputs.append(
+                HouseHourInput(
+                    name=policy.name,
+                    proposed_market_load=proposed,
+                    base_demand=base_demand,
+                    battery=battery,
+                )
             )
-        )
+        return hour_inputs
 
     def _apply_terminal_penalty(self, reward: float, terminated: bool) -> float:
         if not terminated:

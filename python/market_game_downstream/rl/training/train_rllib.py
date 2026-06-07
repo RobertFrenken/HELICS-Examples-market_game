@@ -16,7 +16,7 @@ from ..agents.observations import ObservationMode
 from ..agents.policies import FlattenDemandPolicy, PriceAwarePolicy
 
 
-ENV_NAME = "market_game_rl"
+ENV_NAME = "market_game_downstream.rl"
 
 
 def make_default_opponents() -> list:

@@ -7,9 +7,14 @@ import argparse
 from .env_check import run_env_smoke_check
 from .gym_check import run_gym_smoke_check
 from .parity_check import assert_stock_parity
+from .shared_core_check import run_import_safety_check, run_shared_core_check
 
 
 def run_core_checks() -> None:
+    run_shared_core_check()
+    print("shared core: ok")
+    run_import_safety_check()
+    print("import safety: ok")
     assert_stock_parity()
     print("stock parity: ok")
     run_env_smoke_check()
@@ -19,7 +24,7 @@ def run_core_checks() -> None:
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="run market_game_rl checks")
+    parser = argparse.ArgumentParser(description="run market_game_downstream.rl checks")
     parser.add_argument(
         "--include-rllib",
         action="store_true",

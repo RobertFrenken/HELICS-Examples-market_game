@@ -1,15 +1,21 @@
-"""Market-game rule functions shared by simulation, policies, and RL wrappers."""
+"""Market-game rule functions shared by HELICS scripts, simulation, and RL."""
 
 from __future__ import annotations
 
 from dataclasses import dataclass
 from enum import IntEnum
+from typing import Protocol
 
 from .config import DEFAULT_CONFIG, MarketGameConfig
 
 
+class BatteryLike(Protocol):
+    def current_charge(self) -> float:
+        """Return current stored energy."""
+
+
 class BatteryAction(IntEnum):
-    """Discrete battery posture for baseline RL-style control."""
+    """Discrete battery posture for student examples and RL control."""
 
     DISCHARGE = -1
     NEUTRAL = 0
@@ -23,7 +29,7 @@ class ClampResult:
 
 
 def compute_price_from_average_load(average_market_load: float) -> float:
-    """Mirror ``market_maker.compute_new_price(total, feds)`` after averaging."""
+    """Return the market price for one average market-facing load value."""
     m = average_market_load
     if m < 3.0:
         return 0.1
@@ -48,7 +54,7 @@ def clamp_market_load(
     battery_charge: float,
     config: MarketGameConfig = DEFAULT_CONFIG,
 ) -> ClampResult:
-    """Mirror ``battery.ensure_valid`` and ``check_valid`` effective behavior."""
+    """Clamp a submitted market load to the game's battery constraints."""
     if market_load >= base_demand + (config.battery_capacity - battery_charge):
         return ClampResult(
             base_demand + (config.battery_capacity - battery_charge),
@@ -80,15 +86,7 @@ def action_to_market_load(
     battery_charge: float,
     config: MarketGameConfig = DEFAULT_CONFIG,
 ) -> float:
-    """Convert a discrete battery action into a legal market-facing load.
-
-    ``DISCHARGE`` maps to ``base_demand - max_discharge``.
-    ``NEUTRAL`` maps to ``base_demand``.
-    ``CHARGE`` maps to ``base_demand + max_charge``.
-
-    The result is passed through the same market-load clamp as normal policy
-    output, so callers can use this safely in RL wrappers and deployment code.
-    """
+    """Convert a discrete battery action into a legal market-facing load."""
     action = BatteryAction(action)
     if action == BatteryAction.DISCHARGE:
         proposed = base_demand - config.max_discharge
@@ -97,3 +95,29 @@ def action_to_market_load(
     else:
         proposed = base_demand + config.max_charge
     return clamp_market_load(proposed, base_demand, battery_charge, config).market_load
+
+
+def _battery_charge(battery: BatteryLike | float) -> float:
+    if isinstance(battery, int | float):
+        return float(battery)
+    return battery.current_charge()
+
+
+def ensure_valid(
+    value: float,
+    base_demand: float,
+    battery: BatteryLike | float,
+    config: MarketGameConfig = DEFAULT_CONFIG,
+) -> float:
+    """Compatibility wrapper for the original ``battery.ensure_valid`` helper."""
+    return clamp_market_load(value, base_demand, _battery_charge(battery), config).market_load
+
+
+def check_valid(
+    value: float,
+    base_demand: float,
+    battery: BatteryLike | float,
+    config: MarketGameConfig = DEFAULT_CONFIG,
+) -> str:
+    """Compatibility wrapper for the original ``battery.check_valid`` helper."""
+    return clamp_market_load(value, base_demand, _battery_charge(battery), config).warning
