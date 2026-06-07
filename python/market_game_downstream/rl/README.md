@@ -34,6 +34,12 @@ Evaluate the weekly scenario curriculum:
 python3 -m python.market_game_downstream.rl.evaluate_scenarios
 ```
 
+Evaluate one named scenario from the default JSON scenario registry:
+
+```bash
+python3 -m python.market_game_downstream.rl.evaluate_scenarios --scenario week_3_mixed_population --seed 7
+```
+
 Validate the example exported submission:
 
 ```bash
@@ -46,8 +52,50 @@ Run a short PPO smoke-training job:
 python3 -m python.market_game_downstream.rl.training.train_rllib --iterations 1 --observation-mode price_history
 ```
 
+Train PPO against the same named opponent scenario used by CSV evaluation:
+
+```bash
+python3 -m python.market_game_downstream.rl.training.train_rllib \
+  --iterations 1 \
+  --observation-mode price_history \
+  --scenario week_3_mixed_population \
+  --scenario-seed 7
+```
+
+Train against a larger population with non-smoke PPO settings:
+
+```bash
+python3 -m python.market_game_downstream.rl.training.train_rllib \
+  --iterations 500 \
+  --observation-mode price_history \
+  --scenario-config python/market_game_downstream/rl/scenario_configs/large_population.json \
+  --scenario large_random_grab_bag_40 \
+  --scenario-seed 11 \
+  --train-batch-size 4096 \
+  --minibatch-size 256 \
+  --num-epochs 10 \
+  --checkpoint-dir /tmp/market_game_ppo_large_random_seed11
+```
+
 Use `price_history` as the default RL observation mode. The `inference` mode is
 available for advanced experiments and is documented in `docs/reference/features.md`.
+
+## Scenario Configs
+
+In this package, a scenario means a repeatable experiment configuration:
+demand profile, random seed, and opponent population. This matches common
+multi-agent RL usage where scenario names identify benchmark/game variants,
+while the Gymnasium/RLlib object is still the environment.
+
+The default registry is `scenario_configs/weekly.json`. Larger populations are
+in `scenario_configs/large_population.json`. These files use standard JSON so
+scenario loading has no YAML dependency. Opponents can be listed by policy
+class name or as objects with `type`, `kwargs`, and optional `count`; stochastic
+policy seeds can use `$seed`, `$seed+N`, `$seed-N`, `$index`, or
+`$seed+$index` placeholders.
+
+For the full authoring format, including stochastic `grab_bag` populations, see
+`docs/scenario_config_schema.md`.
 
 ## Dependency Tiers
 
@@ -70,6 +118,8 @@ python3 -m pip install --user --break-system-packages -r python/market_game_down
 - `../docs/policies.md`: baseline and opponent policy behavior.
 - `../docs/competition_workbench.md`: legal observation boundaries and weekly scenarios.
 - `docs/rl_training.md`: simulator-vs-HELICS workflow and deployment path.
+- `docs/scenario_config_schema.md`: scenario config format for exact and grab-bag populations.
+- `docs/scenario_training_and_distillation.md`: scenario-driven PPO, checkpoint evaluation, and export distillation.
 - `../docs/architecture.md`: package boundaries after the shared-core refactor.
 - `../docs/upstream_pr_path.md`: staged path toward smaller upstream PRs.
 - `docs/reference/features.md`: observation and inference feature math.

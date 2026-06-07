@@ -53,6 +53,40 @@ Terminal battery penalties are optional. Use them when training should prefer
 ending near a target battery state, for example in repeated-day experiments
 where ending full or empty changes the next day's value.
 
+## Scenario-Driven Experiments
+
+Use scenario configs for repeatable agent competition experiments. In RL terms,
+the environment is the executable API (`MarketGameEnv`/`GymMarketGameEnv`);
+the scenario is the named matchup/configuration loaded into that environment.
+This is consistent with common multi-agent RL benchmark language, where
+scenario names identify task variants and opponent populations.
+
+For the full scenario-training, checkpoint-evaluation, and distillation
+handoff, see `scenario_training_and_distillation.md`.
+For scenario authoring, including exact repeated populations and stochastic
+grab bags, see `scenario_config_schema.md`.
+
+The default config is `../scenario_configs/weekly.json`. It defines the demand
+profile, seed, and opponent policies for each named scenario. Evaluation and
+PPO training both use the same loader:
+
+```bash
+python3 -m python.market_game_downstream.rl.evaluate_scenarios --scenario week_3_mixed_population --seed 7
+```
+
+```bash
+python3 -m python.market_game_downstream.rl.training.train_rllib \
+  --iterations 1 \
+  --observation-mode price_history \
+  --scenario week_3_mixed_population \
+  --scenario-seed 7
+```
+
+Use `../scenario_configs/large_population.json` for larger training runs. The
+PPO entry point exposes `--train-batch-size`, `--minibatch-size`,
+`--num-epochs`, `--lr`, `--gamma`, and `--num-env-runners` so longer runs do
+not have to use the smoke-test defaults.
+
 ## Deployment Constraint
 
 Assume the final game runner executes only a submitted Python strategy file.

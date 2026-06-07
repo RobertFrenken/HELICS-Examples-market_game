@@ -1,0 +1,141 @@
+{
+  "seed": 1,
+  "scenarios": [
+    {
+      "name": "large_profile1_mixed_25",
+      "profile_type": "profile1",
+      "opponents": [
+        {
+          "type": "FlattenDemandPolicy",
+          "count": 5,
+          "kwargs": {
+            "name": "FlattenDemand_$local_index"
+          }
+        },
+        {
+          "type": "PriceAwarePolicy",
+          "count": 5,
+          "kwargs": {
+            "name": "PriceAware_$local_index"
+          }
+        },
+        {
+          "type": "RollingPricePolicy",
+          "count": 5,
+          "kwargs": {
+            "name": "RollingPrice_$local_index"
+          }
+        },
+        {
+          "type": "NoisyThresholdPolicy",
+          "count": 5,
+          "kwargs": {
+            "name": "NoisyThreshold_$local_index",
+            "seed": "$seed+$index"
+          }
+        },
+        {
+          "type": "OscillatingPolicy",
+          "count": 5,
+          "kwargs": {
+            "name": "Oscillating_$local_index",
+            "period": 4,
+            "phase": "$local_index"
+          }
+        }
+      ]
+    },
+    {
+      "name": "large_random_grab_bag_40",
+      "profile_type": "random",
+      "opponents": [
+        {
+          "count": 40,
+          "seed": "$seed",
+          "name_template": "$type_$index",
+          "grab_bag": [
+            {
+              "type": "PriceAwarePolicy",
+              "weight": 2
+            },
+            {
+              "type": "RollingPricePolicy",
+              "weight": 2
+            },
+            {
+              "type": "LegalInferencePolicy",
+              "weight": 1,
+              "kwargs": {
+                "house_count": "$house_count"
+              }
+            },
+            {
+              "type": "NoisyThresholdPolicy",
+              "weight": 3,
+              "kwargs": {
+                "seed": "$seed+$index",
+                "noise_scale": 0.06
+              }
+            },
+            {
+              "type": "OscillatingPolicy",
+              "weight": 1,
+              "kwargs": {
+                "period": 3,
+                "phase": "$local_index"
+              }
+            },
+            {
+              "type": "VolatilitySeekingPolicy",
+              "weight": 1
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "large_spike_grab_bag_50",
+      "profile_type": "dspike",
+      "opponents": [
+        {
+          "count": 50,
+          "seed": "$seed+100",
+          "name_template": "$type_$index",
+          "grab_bag": [
+            {
+              "type": "FollowDemandPolicy",
+              "weight": 1
+            },
+            {
+              "type": "PriceAwarePolicy",
+              "weight": 2
+            },
+            {
+              "type": "RollingPricePolicy",
+              "weight": 2
+            },
+            {
+              "type": "LegalInferencePolicy",
+              "weight": 1,
+              "kwargs": {
+                "house_count": "$house_count"
+              }
+            },
+            {
+              "type": "NoisyThresholdPolicy",
+              "weight": 3,
+              "kwargs": {
+                "seed": "$seed+$index",
+                "noise_scale": 0.1
+              }
+            },
+            {
+              "type": "VolatilitySeekingPolicy",
+              "weight": 2
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

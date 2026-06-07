@@ -7,10 +7,10 @@ import csv
 import sys
 
 from .scenarios import (
-    evaluate_curriculum,
     evaluate_scenario,
+    load_scenarios,
+    scenario_by_name,
     stock_example_scenario,
-    weekly_training_scenarios,
 )
 
 
@@ -36,14 +36,18 @@ def write_rows(rows: list[dict[str, str]]) -> None:
 def rows_for_args(args: argparse.Namespace) -> list[dict[str, str]]:
     if args.stock:
         return evaluate_scenario(stock_example_scenario())
+    scenarios = load_scenarios(args.config, seed=args.seed)
     if args.scenario:
-        scenarios = weekly_training_scenarios(seed=args.seed)
-        scenarios_by_name = {scenario.name: scenario for scenario in scenarios}
-        if args.scenario not in scenarios_by_name:
-            names = ", ".join(scenarios_by_name)
-            raise SystemExit(f"unknown scenario {args.scenario!r}; choices: {names}")
-        return evaluate_scenario(scenarios_by_name[args.scenario])
-    return evaluate_curriculum(seed=args.seed)
+        try:
+            scenario = scenario_by_name(args.scenario, scenarios)
+        except ValueError as exc:
+            raise SystemExit(str(exc)) from exc
+        return evaluate_scenario(scenario)
+    return [
+        row
+        for scenario in scenarios
+        for row in evaluate_scenario(scenario)
+    ]
 
 
 def main() -> None:
@@ -64,6 +68,11 @@ def main() -> None:
         type=int,
         default=1,
         help="seed for generated weekly demand profiles and stochastic opponents",
+    )
+    parser.add_argument(
+        "--config",
+        default=None,
+        help="JSON scenario config path; defaults to rl/scenario_configs/weekly.json",
     )
     args = parser.parse_args()
     write_rows(rows_for_args(args))

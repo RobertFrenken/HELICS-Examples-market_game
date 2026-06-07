@@ -1,0 +1,69 @@
+{
+  "seed": 1,
+  "scenarios": [
+    {
+      "name": "week_1_baselines",
+      "profile_type": "profile1",
+      "opponents": [
+        "FlattenDemandPolicy",
+        "PriceAwarePolicy",
+        "RollingPricePolicy"
+      ]
+    },
+    {
+      "name": "week_2_new_profile",
+      "profile_type": "random",
+      "opponents": [
+        "PriceAwarePolicy",
+        "RollingPricePolicy",
+        {
+          "type": "NoisyThresholdPolicy",
+          "kwargs": {
+            "seed": "$seed"
+          }
+        }
+      ]
+    },
+    {
+      "name": "week_3_mixed_population",
+      "profile_type": "spike",
+      "opponents": [
+        "FollowDemandPolicy",
+        "LegalInferencePolicy",
+        {
+          "type": "NoisyThresholdPolicy",
+          "kwargs": {
+            "seed": "$seed+1"
+          }
+        },
+        {
+          "type": "OscillatingPolicy",
+          "kwargs": {
+            "phase": 1
+          }
+        }
+      ]
+    },
+    {
+      "name": "week_4_chaotic_houses",
+      "profile_type": "dspike",
+      "opponents": [
+        "PriceAwarePolicy",
+        {
+          "type": "NoisyThresholdPolicy",
+          "kwargs": {
+            "seed": "$seed+2",
+            "noise_scale": 0.08
+          }
+        },
+        {
+          "type": "OscillatingPolicy",
+          "kwargs": {
+            "period": 3
+          }
+        },
+        "VolatilitySeekingPolicy"
+      ]
+    }
+  ]
+}
