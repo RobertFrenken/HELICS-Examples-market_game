@@ -35,18 +35,21 @@ class BatteryState:
         return self.energy
 
     def change(self, delta: float) -> float:
+        eps = 1e-9
         if delta < 0.0:
             discharge = abs(delta)
-            if discharge > self.energy:
+            if discharge > self.energy + eps:
                 raise ValueError("requested discharge exceeds current charge level")
-            if discharge > self.config.max_discharge:
+            if discharge > self.config.max_discharge + eps:
                 raise ValueError("requested discharge exceeds maximum discharge rate")
+            discharge = min(discharge, self.energy, self.config.max_discharge)
             self.energy -= discharge
         else:
-            if self.energy + delta > self.config.battery_capacity:
+            if self.energy + delta > self.config.battery_capacity + eps:
                 raise ValueError("requested charge exceeds maximum capacity")
-            if delta > self.config.max_charge:
+            if delta > self.config.max_charge + eps:
                 raise ValueError("requested charge rate exceeds maximum rate")
+            delta = min(delta, self.config.battery_capacity - self.energy, self.config.max_charge)
             self.energy += delta
         return self.energy
 
@@ -104,6 +107,36 @@ class HouseHourResult:
     warning: str = ""
 
 
+@dataclass(frozen=True)
+class LegalHouseInput:
+    """The legal runtime input surface for a deployed house policy.
+
+    This matches the arguments passed to ``compute_demand(...)``. Training code
+    may build this object for clarity, but submitted policies should still be
+    exportable as a plain function with the original signature.
+    """
+
+    price: float
+    hour: int
+    battery_charge: float
+    demand: list[float]
+    price_history: list[float]
+
+
+@dataclass(frozen=True)
+class OracleMarketFrame:
+    """Simulator-only market data that is not available to a deployed house."""
+
+    hour: int
+    price: float
+    next_price: float
+    total_load: float
+    average_load: float
+    loads_by_house: dict[str, float]
+    batteries_by_house: dict[str, float]
+    costs_by_house: dict[str, float]
+
+
 @dataclass
 class HourRecord:
     hour: int
@@ -129,6 +162,22 @@ class SimulationResult:
 
     def total_loads(self) -> dict[str, float]:
         return {house.policy.name: house.total_load for house in self.houses}
+
+    def oracle_trace(self) -> list[OracleMarketFrame]:
+        """Return simulator-only frames for diagnostics and supervised labels."""
+        return [
+            OracleMarketFrame(
+                hour=record.hour,
+                price=record.price,
+                next_price=record.next_price,
+                total_load=record.total_load,
+                average_load=record.average_load,
+                loads_by_house=dict(record.loads_by_house),
+                batteries_by_house=dict(record.batteries_by_house),
+                costs_by_house=dict(record.costs_by_house),
+            )
+            for record in self.records
+        ]
 
 
 def run_episode(

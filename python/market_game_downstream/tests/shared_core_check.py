@@ -48,7 +48,7 @@ def run_shared_core_check() -> None:
 
 
 def run_import_safety_check() -> None:
-    helics_path = Path(__file__).resolve().parents[2] / "helics"
+    helics_path = Path(__file__).resolve().parents[1] / "helics"
     if str(helics_path) not in sys.path:
         sys.path.insert(0, str(helics_path))
 

@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+import math
+import random
 
 from ..core.config import DEFAULT_CONFIG
 from .features import (
@@ -20,6 +22,8 @@ BATTERY_MAX_DISCHARGE = DEFAULT_CONFIG.max_discharge
 
 @dataclass
 class FollowDemandPolicy:
+    """Passive baseline that submits the base demand profile exactly."""
+
     name: str = "FollowDemandHouse"
 
     def reset(self) -> None:
@@ -39,6 +43,8 @@ class FollowDemandPolicy:
 
 @dataclass
 class FlattenDemandPolicy:
+    """Price-blind baseline that uses the battery to flatten own demand."""
+
     name: str = "FlattenDemandHouse"
 
     def reset(self) -> None:
@@ -67,6 +73,8 @@ class FlattenDemandPolicy:
 
 @dataclass
 class FullCyclePolicy:
+    """Mechanical baseline that cycles the battery between full and empty."""
+
     name: str = "FullCycleHouse"
     charging: bool = True
 
@@ -98,6 +106,8 @@ class FullCyclePolicy:
 
 @dataclass
 class PriceAwarePolicy:
+    """Threshold policy with simple price bands and time-of-day reserves."""
+
     name: str = "PriceAwareHouse"
 
     def reset(self) -> None:
@@ -152,6 +162,8 @@ class PriceAwarePolicy:
 
 @dataclass
 class RollingPricePolicy:
+    """Legal adaptive policy that compares price to a rolling recent mean."""
+
     name: str = "RollingPriceHouse"
     window: int = 6
     cheap_ratio: float = 0.94
@@ -197,6 +209,8 @@ class RollingPricePolicy:
 
 @dataclass
 class LegalInferencePolicy:
+    """Legal-observation policy that infers aggregate pressure from prices."""
+
     name: str = "LegalInferenceHouse"
     house_count: int = 3
     own_load_history: list[float] = field(default_factory=list)
@@ -280,4 +294,114 @@ class LegalInferencePolicy:
             return proposed
 
         self.own_load_history.append(base_demand)
+        return base_demand
+
+
+@dataclass
+class NoisyThresholdPolicy:
+    """Seeded threshold opponent with repeatable per-hour jitter."""
+
+    name: str = "NoisyThresholdHouse"
+    seed: int = 1
+    reserve: float = 4.0
+    noise_scale: float = 0.04
+    _rng: random.Random = field(init=False, repr=False)
+
+    def __post_init__(self) -> None:
+        self._rng = random.Random(self.seed)
+
+    def reset(self) -> None:
+        self._rng = random.Random(self.seed)
+
+    def compute_demand(
+        self,
+        price: float,
+        hour: int,
+        battery_charge: float,
+        demand: list[float],
+        price_history: list[float],
+    ) -> float:
+        del price_history
+        base_demand = demand[hour]
+        remaining_capacity = BATTERY_CAPACITY - battery_charge
+        cheap_threshold = 0.14 + self._rng.uniform(-self.noise_scale, self.noise_scale)
+        expensive_threshold = 0.34 + self._rng.uniform(-self.noise_scale, self.noise_scale)
+
+        if price <= cheap_threshold and remaining_capacity > 0.0:
+            return base_demand + min(BATTERY_MAX_CHARGE, remaining_capacity)
+
+        if price >= expensive_threshold and battery_charge > self.reserve:
+            discharge_amount = min(BATTERY_MAX_DISCHARGE, battery_charge - self.reserve)
+            return base_demand - discharge_amount
+
+        if hour >= 21 and battery_charge > 0.0:
+            return base_demand - min(BATTERY_MAX_DISCHARGE, battery_charge)
+
+        return base_demand
+
+
+@dataclass
+class OscillatingPolicy:
+    """Price-blind opponent with sinusoidal charge/discharge swings."""
+
+    name: str = "OscillatingHouse"
+    period: int = 4
+    phase: int = 0
+
+    def reset(self) -> None:
+        pass
+
+    def compute_demand(
+        self,
+        price: float,
+        hour: int,
+        battery_charge: float,
+        demand: list[float],
+        price_history: list[float],
+    ) -> float:
+        del price, price_history
+        base_demand = demand[hour]
+        wave = math.sin(2.0 * math.pi * (hour + self.phase) / self.period)
+        if wave >= 0.0:
+            charge_amount = min(BATTERY_MAX_CHARGE, BATTERY_CAPACITY - battery_charge)
+            return base_demand + charge_amount
+        discharge_amount = min(BATTERY_MAX_DISCHARGE, battery_charge)
+        return base_demand - discharge_amount
+
+
+@dataclass
+class VolatilitySeekingPolicy:
+    """Chaotic opponent that tends to amplify price movement."""
+
+    name: str = "VolatilitySeekingHouse"
+
+    def reset(self) -> None:
+        pass
+
+    def compute_demand(
+        self,
+        price: float,
+        hour: int,
+        battery_charge: float,
+        demand: list[float],
+        price_history: list[float],
+    ) -> float:
+        base_demand = demand[hour]
+        previous_prices = price_history[:-1]
+        trend = (
+            previous_prices[-1] - previous_prices[-2]
+            if len(previous_prices) >= 2
+            else 0.0
+        )
+        remaining_capacity = BATTERY_CAPACITY - battery_charge
+
+        if price < 0.49 and trend >= 0.0 and remaining_capacity > 0.0:
+            return base_demand + min(BATTERY_MAX_CHARGE, remaining_capacity)
+
+        if price >= 0.19 and battery_charge > 0.0:
+            return base_demand - min(BATTERY_MAX_DISCHARGE, battery_charge)
+
+        if hour >= 21 and battery_charge > 0.0:
+            return base_demand - min(BATTERY_MAX_DISCHARGE, battery_charge)
+
         return base_demand

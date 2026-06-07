@@ -9,11 +9,22 @@ refactor work into the original example directory.
 Layout:
 
 - `core/`: dependency-free market rules and pure Python simulator.
+- `docs/`: downstream architecture, usage, competition, and upstreaming notes.
 - `helics/`: downstream HELICS mirror that can import the shared core.
-- `rl/`: policies, observation builders, Gymnasium/RLlib adapters, and checks.
+- `tests/`: smoke, parity, scenario, and export validation tests.
+- `rl/`: policies, observation builders, Gymnasium/RLlib adapters, and training/evaluation commands.
+- `rl/export/`: wrappers and validators for self-contained `compute_demand`
+  submissions.
 
 Run the local checks from the repository root:
 
 ```bash
-python3 -m python.market_game_downstream.rl.checks.check_all
+python3 -m python.market_game_downstream.tests.check_all
 ```
+
+Read next:
+
+- `docs/competition_workbench.md`: legal observations vs diagnostics/oracle
+  data, weekly scenarios, and deployment goals.
+- `docs/policies.md`: baseline and opponent policy behavior.
+- `docs/upstream_pr_path.md`: small PR sequence for upstreaming pieces.

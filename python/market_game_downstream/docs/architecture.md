@@ -1,4 +1,4 @@
-# Market Game RL Architecture
+# Market Game Downstream Architecture
 
 The implementation now has one shared rule layer and two adapters.
 
@@ -16,7 +16,8 @@ flowchart TD
 |---|---|
 | `market_game_downstream.core` | Canonical pure-Python rules, battery limits, pricing, profiles, clamping, and episode simulation. |
 | `market_game` | HELICS communication, house templates, local runner, plotting. |
-| `market_game_downstream.rl` | Policies, legal observations, Gymnasium adapter, RLlib training, checks. |
+| `market_game_downstream.rl` | Policies, legal observations, Gymnasium adapter, RLlib training, and evaluation commands. |
+| `market_game_downstream.tests` | Smoke, parity, scenario, export, and optional RLlib tests. |
 
 ## Compatibility
 

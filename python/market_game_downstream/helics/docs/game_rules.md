@@ -87,6 +87,10 @@ directly; it only receives each house's submitted demand through HELICS.
 The template clamps invalid choices back into the legal battery range so the
 round can continue.
 
+The current downstream notes on invalid-demand consequences and the known
+clamp-order edge case live in
+`../../docs/invalid_demand_behavior.md`.
+
 ## Market Load
 
 Each house has a base demand for the current hour:

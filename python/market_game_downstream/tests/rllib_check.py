@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from ..agents.observations import ObservationMode
-from ..training.train_rllib import train
+from python.market_game_downstream.rl.agents.observations import ObservationMode
+from python.market_game_downstream.rl.training.train_rllib import train
 
 
 def run_rllib_smoke_check() -> None:

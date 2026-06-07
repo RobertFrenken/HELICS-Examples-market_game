@@ -6,8 +6,8 @@ import argparse
 from collections.abc import Callable
 from dataclasses import dataclass
 
-from ..core.metrics import result_price_volatility
-from ..agents.policies import (
+from .core.metrics import result_price_volatility
+from .agents.policies import (
     FlattenDemandPolicy,
     FollowDemandPolicy,
     FullCyclePolicy,
@@ -15,7 +15,7 @@ from ..agents.policies import (
     PriceAwarePolicy,
     RollingPricePolicy,
 )
-from ..core.simulator import HousePolicy, run_episode
+from .core.simulator import HousePolicy, run_episode
 
 PolicyFactory = Callable[[], HousePolicy]
 

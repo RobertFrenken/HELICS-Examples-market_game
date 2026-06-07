@@ -2,10 +2,15 @@
 
 from __future__ import annotations
 
-from ..envs.env import MarketGameEnv
-from ..agents.observations import ObservationMode, OBSERVATION_SCHEMAS
-from ..agents.policies import FlattenDemandPolicy, PriceAwarePolicy
-from ..core.rules import BatteryAction
+from python.market_game_downstream.rl.agents.observations import (
+    OBSERVATION_SCHEMAS,
+)
+from python.market_game_downstream.rl.agents.policies import (
+    FlattenDemandPolicy,
+    PriceAwarePolicy,
+)
+from python.market_game_downstream.rl.core.rules import BatteryAction
+from python.market_game_downstream.rl.envs.env import MarketGameEnv
 
 
 def run_env_smoke_check() -> None:

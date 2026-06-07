@@ -1,4 +1,4 @@
-# Market Game RL Usage
+# Market Game Downstream Usage
 
 Run commands from the repo root.
 
@@ -7,29 +7,29 @@ Run commands from the repo root.
 Core checks:
 
 ```bash
-python3 -m python.market_game_downstream.rl.checks.check_all
+python3 -m python.market_game_downstream.tests.check_all
 ```
 
 Core checks plus the heavier Ray RLlib smoke check:
 
 ```bash
-python3 -m python.market_game_downstream.rl.checks.check_all --include-rllib
+python3 -m python.market_game_downstream.tests.check_all --include-rllib
 ```
 
 Individual checks:
 
 ```bash
-python3 -m python.market_game_downstream.rl.checks.shared_core_check
-python3 -m python.market_game_downstream.rl.checks.parity_check
-python3 -m python.market_game_downstream.rl.checks.env_check
-python3 -m python.market_game_downstream.rl.checks.gym_check
-python3 -m python.market_game_downstream.rl.checks.rllib_check
+python3 -m python.market_game_downstream.tests.shared_core_check
+python3 -m python.market_game_downstream.tests.parity_check
+python3 -m python.market_game_downstream.tests.env_check
+python3 -m python.market_game_downstream.tests.gym_check
+python3 -m python.market_game_downstream.tests.rllib_check
 ```
 
 ## Parity Output
 
 ```bash
-python3 -m python.market_game_downstream.rl.checks.evaluate --stock
+python3 -m python.market_game_downstream.rl.evaluate --stock
 ```
 
 Expected stock `profile1` output:
@@ -46,13 +46,16 @@ These values match a live HELICS run of the included example houses.
 ## Baseline Evaluation
 
 ```bash
-python3 -m python.market_game_downstream.rl.checks.evaluate
+python3 -m python.market_game_downstream.rl.evaluate
 ```
 
 This prints CSV rows for the stock example, all-follow-demand baseline, and
 early heuristic mixes. `boundary_warnings` mirrors the original inclusive
 warning behavior. `clamps` counts effective value changes and is the better
 constraint-quality metric.
+
+Invalid demand handling and the current clamp-order edge case are documented in
+`invalid_demand_behavior.md`.
 
 Pure simulations may also be built directly with `python.market_game_downstream.core`:
 

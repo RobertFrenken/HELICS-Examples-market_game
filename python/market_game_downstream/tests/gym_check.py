@@ -4,9 +4,15 @@ from __future__ import annotations
 
 from gymnasium.utils.env_checker import check_env
 
-from ..envs.gym_env import GymMarketGameEnv
-from ..agents.observations import ObservationMode, observation_schema
-from ..agents.policies import FlattenDemandPolicy, PriceAwarePolicy
+from python.market_game_downstream.rl.agents.observations import (
+    ObservationMode,
+    observation_schema,
+)
+from python.market_game_downstream.rl.agents.policies import (
+    FlattenDemandPolicy,
+    PriceAwarePolicy,
+)
+from python.market_game_downstream.rl.envs.gym_env import GymMarketGameEnv
 
 
 def run_gym_smoke_check() -> None:
