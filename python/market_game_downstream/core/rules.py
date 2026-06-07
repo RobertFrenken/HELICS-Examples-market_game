@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from enum import IntEnum
+import math
 from typing import Protocol
 
 from .config import DEFAULT_CONFIG, MarketGameConfig
@@ -30,6 +31,7 @@ class ClampResult:
 
 def compute_price_from_average_load(average_market_load: float) -> float:
     """Return the market price for one average market-facing load value."""
+    _finite_number(average_market_load, "average_market_load")
     m = average_market_load
     if m < 3.0:
         return 0.1
@@ -43,6 +45,9 @@ def compute_price_from_average_load(average_market_load: float) -> float:
 
 
 def compute_price_from_total_load(total_market_load: float, house_count: int) -> float:
+    _finite_number(total_market_load, "total_market_load")
+    if house_count < 0:
+        raise ValueError("house_count must be >= 0")
     if house_count == 0:
         return 0.1
     return compute_price_from_average_load(total_market_load / house_count)
@@ -55,6 +60,9 @@ def clamp_market_load(
     config: MarketGameConfig = DEFAULT_CONFIG,
 ) -> ClampResult:
     """Clamp a submitted market load to the game's battery constraints."""
+    _finite_number(market_load, "market_load")
+    _finite_number(base_demand, "base_demand")
+    _finite_number(battery_charge, "battery_charge")
     if market_load >= base_demand + (config.battery_capacity - battery_charge):
         return ClampResult(
             base_demand + (config.battery_capacity - battery_charge),
@@ -101,6 +109,13 @@ def _battery_charge(battery: BatteryLike | float) -> float:
     if isinstance(battery, int | float):
         return float(battery)
     return battery.current_charge()
+
+
+def _finite_number(value: float, field_name: str) -> None:
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        raise ValueError(f"{field_name} must be numeric")
+    if not math.isfinite(float(value)):
+        raise ValueError(f"{field_name} must be finite")
 
 
 def ensure_valid(

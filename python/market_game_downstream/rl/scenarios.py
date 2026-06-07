@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from dataclasses import dataclass, field, replace
 import json
+import math
 from pathlib import Path
 import random
 from typing import Any
@@ -13,6 +14,7 @@ from python.market_game_downstream.core import (
     DEFAULT_CONFIG,
     MarketGameConfig,
     MarketScenario,
+    PROFILE_TYPES,
     demand_profile,
 )
 from python.market_game_downstream.core.simulator import HousePolicy, run_scenario
@@ -106,14 +108,16 @@ def load_scenarios(
     """
     config_path = Path(path) if path is not None else SCENARIO_CONFIG_PATH
     data = json.loads(config_path.read_text(encoding="utf-8"))
-    default_seed = int(data.get("seed", 1))
+    default_seed = _int_value(data.get("seed", 1), "scenario config seed")
     scenarios = data.get("scenarios", [])
     if not isinstance(scenarios, list):
         raise ValueError("scenario config must contain a 'scenarios' list")
-    return [
+    loaded = [
         _scenario_from_config(item, default_seed=default_seed, override_seed=seed)
         for item in scenarios
     ]
+    _validate_unique_names(loaded)
+    return loaded
 
 
 def legacy_weekly_training_scenarios(seed: int = 1) -> list[CompetitionScenario]:
@@ -182,6 +186,18 @@ def scenario_by_name(
         raise ValueError(f"unknown scenario {name!r}; choices: {choices}") from exc
 
 
+def _validate_unique_names(scenarios: list[CompetitionScenario]) -> None:
+    seen: set[str] = set()
+    duplicates: list[str] = []
+    for scenario in scenarios:
+        if scenario.name in seen:
+            duplicates.append(scenario.name)
+        seen.add(scenario.name)
+    if duplicates:
+        names = ", ".join(sorted(set(duplicates)))
+        raise ValueError(f"duplicate scenario name(s): {names}")
+
+
 def _scenario_from_config(
     item: object,
     default_seed: int,
@@ -189,10 +205,13 @@ def _scenario_from_config(
 ) -> CompetitionScenario:
     if not isinstance(item, dict):
         raise ValueError("each scenario entry must be an object")
-    seed = int(override_seed if override_seed is not None else item.get("seed", default_seed))
+    seed = _int_value(
+        override_seed if override_seed is not None else item.get("seed", default_seed),
+        "scenario seed",
+    )
     return CompetitionScenario(
         name=_required_string(item, "name"),
-        profile_type=str(item.get("profile_type", "profile1")),
+        profile_type=_profile_type(item.get("profile_type", "profile1")),
         seed=seed,
         policy_factories=_policy_factories(item.get("opponents", []), scenario_seed=seed),
     )
@@ -222,7 +241,7 @@ def _opponent_count(items: list[object]) -> int:
         if isinstance(item, str):
             total += 1
         elif isinstance(item, dict):
-            total += int(item.get("count", 1))
+            total += _positive_int(item.get("count", 1), "opponent count")
         else:
             raise ValueError("opponent entries must be policy names or objects")
     return total
@@ -254,9 +273,7 @@ def _policy_factories_from_item(
             start_index=start_index,
         )
 
-    count = int(item.get("count", 1))
-    if count < 1:
-        raise ValueError("opponent count must be at least 1")
+    count = _positive_int(item.get("count", 1), "opponent count")
     return [
         _policy_factory(
             item,
@@ -275,9 +292,7 @@ def _grab_bag_factories(
     house_count: int,
     start_index: int,
 ) -> list[PolicyFactory]:
-    count = int(item.get("count", 1))
-    if count < 1:
-        raise ValueError("grab_bag count must be at least 1")
+    count = _positive_int(item.get("count", 1), "grab_bag count")
     choices = item.get("grab_bag")
     if not isinstance(choices, list) or not choices:
         raise ValueError("grab_bag must be a non-empty list")
@@ -290,8 +305,10 @@ def _grab_bag_factories(
         house_count=house_count,
         policy_type="",
     )
-    rng = random.Random(int(rng_seed))
+    rng = random.Random(_int_value(rng_seed, "grab_bag seed"))
     weights = [_choice_weight(choice) for choice in choices]
+    if sum(weights) <= 0.0:
+        raise ValueError("grab_bag weights must contain at least one positive value")
     name_template = str(item.get("name_template", "$type_$index"))
     factories = []
     for local_index in range(count):
@@ -320,7 +337,10 @@ def _choice_weight(choice: object) -> float:
     if isinstance(choice, str):
         return 1.0
     if isinstance(choice, dict):
-        return float(choice.get("weight", 1.0))
+        weight = _float_value(choice.get("weight", 1.0), "grab_bag weight")
+        if weight < 0.0:
+            raise ValueError("grab_bag weight must be non-negative")
+        return weight
     raise ValueError("grab_bag choices must be policy names or objects")
 
 
@@ -330,7 +350,7 @@ def _normalize_grab_bag_choice(choice: object) -> dict[str, object]:
     if isinstance(choice, dict):
         return {
             "type": _required_string(choice, "type"),
-            "kwargs": dict(choice.get("kwargs", {})),
+            "kwargs": _kwargs_dict(choice.get("kwargs", {})),
         }
     raise ValueError("grab_bag choices must be policy names or objects")
 
@@ -347,7 +367,7 @@ def _policy_factory_with_index(
         kwargs: dict[str, Any] = {}
     elif isinstance(item, dict):
         policy_type = _required_string(item, "type")
-        kwargs = dict(item.get("kwargs", {}))
+        kwargs = _kwargs_dict(item.get("kwargs", {}))
     else:
         raise ValueError("opponent entries must be policy names or objects")
 
@@ -450,6 +470,50 @@ def _required_string(item: dict[str, object], key: str) -> str:
     if not isinstance(value, str) or not value:
         raise ValueError(f"scenario config entry must define non-empty string {key!r}")
     return value
+
+
+def _profile_type(value: object) -> str:
+    if not isinstance(value, str) or not value:
+        raise ValueError("scenario profile_type must be a non-empty string")
+    if value not in PROFILE_TYPES:
+        choices = ", ".join(PROFILE_TYPES)
+        raise ValueError(f"unknown demand profile {value!r}; choices: {choices}")
+    return value
+
+
+def _positive_int(value: object, field_name: str) -> int:
+    result = _int_value(value, field_name)
+    if result < 1:
+        raise ValueError(f"{field_name} must be an integer >= 1")
+    return result
+
+
+def _int_value(value: object, field_name: str) -> int:
+    if isinstance(value, bool):
+        raise ValueError(f"{field_name} must be an integer")
+    if isinstance(value, int):
+        return value
+    if isinstance(value, str) and value.strip().lstrip("-").isdigit():
+        return int(value)
+    raise ValueError(f"{field_name} must be an integer")
+
+
+def _float_value(value: object, field_name: str) -> float:
+    if isinstance(value, bool):
+        raise ValueError(f"{field_name} must be numeric")
+    try:
+        result = float(value)
+    except (TypeError, ValueError) as exc:
+        raise ValueError(f"{field_name} must be numeric") from exc
+    if not math.isfinite(result):
+        raise ValueError(f"{field_name} must be finite")
+    return result
+
+
+def _kwargs_dict(value: object) -> dict[str, object]:
+    if not isinstance(value, dict):
+        raise ValueError("policy kwargs must be an object")
+    return dict(value)
 
 
 def evaluate_scenario(scenario: CompetitionScenario) -> list[dict[str, str]]:

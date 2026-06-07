@@ -1,6 +1,12 @@
 """Shared pure-Python rules for the HELICS market game and RL helpers."""
 
-from .config import DEFAULT_CONFIG, PROFILE1_DEMAND, MarketGameConfig, demand_profile
+from .config import (
+    DEFAULT_CONFIG,
+    PROFILE1_DEMAND,
+    PROFILE_TYPES,
+    MarketGameConfig,
+    demand_profile,
+)
 from .rules import (
     BatteryAction,
     ClampResult,
@@ -41,6 +47,7 @@ __all__ = [
     "MarketGameConfig",
     "OracleMarketFrame",
     "PROFILE1_DEMAND",
+    "PROFILE_TYPES",
     "SimHouse",
     "SimulationResult",
     "action_to_market_load",

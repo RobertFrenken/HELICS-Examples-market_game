@@ -10,9 +10,8 @@ import numpy as np
 from gymnasium import spaces
 
 from ..core.config import DEFAULT_CONFIG, MarketGameConfig
-from .env import MarketGameEnv
+from .env import MarketGameEnv, default_opponent_policies
 from ..agents.observations import ObservationMode, observation_schema
-from ..agents.policies import FollowDemandPolicy
 from ..core.rules import BatteryAction
 from ..core.simulator import HousePolicy
 
@@ -78,7 +77,7 @@ class GymMarketGameEnv(gym.Env):
         self.env = MarketGameEnv(
             opponent_policies=list(opponent_policies)
             if opponent_policies is not None
-            else [FollowDemandPolicy(), FollowDemandPolicy()],
+            else default_opponent_policies(),
             config=config,
             observation_mode=self.observation_mode,
             final_battery_target=final_battery_target,
@@ -105,9 +104,20 @@ class GymMarketGameEnv(gym.Env):
         self,
         action: int,
     ) -> tuple[np.ndarray, float, bool, bool, dict[str, Any]]:
-        battery_action = GYM_ACTION_TO_BATTERY_ACTION[int(action)]
+        battery_action = _gym_action_to_battery_action(action)
         obs, reward, terminated, truncated, info = self.env.step(battery_action)
         return self._as_observation(obs), float(reward), terminated, truncated, info
 
     def _as_observation(self, obs: list[float]) -> np.ndarray:
         return np.asarray(obs, dtype=np.float32)
+
+
+def _gym_action_to_battery_action(action: int) -> BatteryAction:
+    try:
+        action_index = int(action)
+    except (TypeError, ValueError) as exc:
+        raise ValueError(f"invalid Gym action {action!r}; expected 0, 1, or 2") from exc
+    try:
+        return GYM_ACTION_TO_BATTERY_ACTION[action_index]
+    except KeyError as exc:
+        raise ValueError(f"invalid Gym action {action!r}; expected 0, 1, or 2") from exc

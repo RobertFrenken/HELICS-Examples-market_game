@@ -31,6 +31,12 @@ def run_gym_smoke_check() -> None:
         assert isinstance(reward, float)
         assert not truncated
         assert isinstance(terminated, bool)
+        try:
+            env.step(99)
+        except ValueError as exc:
+            assert "invalid Gym action" in str(exc)
+        else:
+            raise AssertionError("invalid Gym action was not rejected")
 
 
 if __name__ == "__main__":

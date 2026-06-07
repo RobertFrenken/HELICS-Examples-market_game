@@ -21,6 +21,14 @@ from ..core.rules import (
 from ..core.simulator import BatteryState, HouseHourInput, HousePolicy, HourRecord, step_market_hour
 
 
+def default_opponent_policies() -> list[HousePolicy]:
+    """Return uniquely named default opponents for diagnostics and smoke runs."""
+    return [
+        FollowDemandPolicy(name="FollowDemandOpponent_0"),
+        FollowDemandPolicy(name="FollowDemandOpponent_1"),
+    ]
+
+
 @dataclass
 class EnvStepDiagnostics:
     own_market_load: float
@@ -50,7 +58,11 @@ class MarketGameEnv:
         final_battery_penalty: float = 0.0,
     ):
         self.config = config
-        self.opponent_policies = opponent_policies or [FollowDemandPolicy(), FollowDemandPolicy()]
+        self.opponent_policies = (
+            list(opponent_policies)
+            if opponent_policies is not None
+            else default_opponent_policies()
+        )
         self.observation_mode = ObservationMode(observation_mode)
         self.final_battery_target = final_battery_target
         self.final_battery_penalty = final_battery_penalty

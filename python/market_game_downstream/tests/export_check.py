@@ -28,6 +28,18 @@ def assert_valid_report(report: ValidationReport) -> None:
     assert report.ok
 
 
+def assert_unsafe_submission(source: str) -> None:
+    with tempfile.TemporaryDirectory() as temp_dir:
+        path = Path(temp_dir) / "bad_submission.py"
+        path.write_text(source, encoding="utf-8")
+        try:
+            validate_submission_file(path)
+        except SubmissionValidationError:
+            pass
+        else:
+            raise AssertionError("unsafe submission was not rejected")
+
+
 def run_export_smoke_check() -> None:
     export_dir = Path(__file__).resolve().parents[1] / "rl" / "export"
     assert_valid_report(
@@ -52,6 +64,18 @@ def run_export_smoke_check() -> None:
         observation_mode="local",
         scenario_seed=3,
     )
+    try:
+        collect_teacher_samples(
+            lambda obs: 9,
+            scenario_names=["week_1_baselines"],
+            observation_mode="local",
+            scenario_seed=3,
+        )
+    except ValueError as exc:
+        assert "teacher action" in str(exc)
+    else:
+        raise AssertionError("invalid teacher action was not rejected")
+
     distillation = fit_threshold_rule(samples)
     assert distillation.samples == 24
     assert distillation.accuracy >= 0.8
@@ -81,19 +105,22 @@ def run_export_smoke_check() -> None:
         write_matrix_submission(matrix_distillation.rule, matrix_submission)
         assert_valid_report(validate_submission_file(matrix_submission))
 
-        bad_submission = Path(temp_dir) / "bad_submission.py"
-        bad_submission.write_text(
-            "print('import-time side effect')\n"
-            "def compute_demand(price, hour, battery_charge, demand, price_history):\n"
-            "    return globals()['x']\n",
-            encoding="utf-8",
-        )
-        try:
-            validate_submission_file(bad_submission)
-        except SubmissionValidationError:
-            pass
-        else:
-            raise AssertionError("unsafe submission was not rejected")
+    assert_unsafe_submission(
+        "print('import-time side effect')\n"
+        "def compute_demand(price, hour, battery_charge, demand, price_history):\n"
+        "    return globals()['x']\n"
+    )
+    assert_unsafe_submission(
+        "def decorate(fn):\n"
+        "    return fn\n"
+        "@decorate\n"
+        "def compute_demand(price, hour, battery_charge, demand, price_history):\n"
+        "    return demand[hour]\n"
+    )
+    assert_unsafe_submission(
+        "def compute_demand(price=open, hour=0, battery_charge=0, demand=None, price_history=None):\n"
+        "    return demand[hour]\n"
+    )
 
 
 if __name__ == "__main__":

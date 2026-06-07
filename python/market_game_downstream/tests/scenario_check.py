@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
+import tempfile
 
 from python.market_game_downstream.core.simulator import run_scenario
 from python.market_game_downstream.rl.scenarios import (
@@ -10,6 +12,18 @@ from python.market_game_downstream.rl.scenarios import (
     load_scenarios,
     stock_example_scenario,
 )
+
+
+def assert_config_error(config: object, expected: str) -> None:
+    with tempfile.TemporaryDirectory() as temp_dir:
+        path = Path(temp_dir) / "scenarios.json"
+        path.write_text(json.dumps(config), encoding="utf-8")
+        try:
+            load_scenarios(path)
+        except ValueError as exc:
+            assert expected in str(exc)
+        else:
+            raise AssertionError(f"scenario config did not fail with {expected!r}")
 
 
 def run_scenario_smoke_check() -> None:
@@ -56,6 +70,66 @@ def run_scenario_smoke_check() -> None:
         assert row["agent"]
         float(row["total_cost"])
         float(row["final_battery"])
+
+    assert_config_error(
+        {
+            "scenarios": [
+                {"name": "duplicate", "opponents": []},
+                {"name": "duplicate", "opponents": []},
+            ]
+        },
+        "duplicate scenario name",
+    )
+    assert_config_error(
+        {
+            "scenarios": [
+                {
+                    "name": "bad_count",
+                    "opponents": [{"type": "PriceAwarePolicy", "count": 0}],
+                }
+            ]
+        },
+        "opponent count",
+    )
+    assert_config_error(
+        {
+            "scenarios": [
+                {
+                    "name": "bad_profile",
+                    "profile_type": "typo",
+                    "opponents": [],
+                }
+            ]
+        },
+        "unknown demand profile",
+    )
+    assert_config_error(
+        {
+            "scenarios": [
+                {
+                    "name": "bad_kwargs",
+                    "opponents": [{"type": "PriceAwarePolicy", "kwargs": []}],
+                }
+            ]
+        },
+        "policy kwargs",
+    )
+    assert_config_error(
+        {
+            "scenarios": [
+                {
+                    "name": "bad_weight",
+                    "opponents": [
+                        {
+                            "count": 1,
+                            "grab_bag": [{"type": "PriceAwarePolicy", "weight": -1}],
+                        }
+                    ],
+                }
+            ]
+        },
+        "grab_bag weight",
+    )
 
 
 if __name__ == "__main__":

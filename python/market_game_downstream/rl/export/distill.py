@@ -151,7 +151,7 @@ def collect_teacher_samples(
             hour = int(info["hour"])
             price = float(info["price"])
             battery = float(info["battery"])
-            action_index = int(teacher_action(obs))
+            action_index = _teacher_action_index(teacher_action(obs))
             battery_action = ACTION_INDEX_TO_BATTERY_ACTION[action_index]
             samples.append(
                 TeacherSample(
@@ -166,6 +166,17 @@ def collect_teacher_samples(
             )
             obs, _reward, terminated, truncated, info = env.step(battery_action)
     return samples
+
+
+def _teacher_action_index(value: object) -> int:
+    """Normalize teacher output to the three-action battery policy space."""
+    if hasattr(value, "item"):
+        value = value.item()
+    if isinstance(value, bool) or not isinstance(value, int):
+        raise ValueError(f"teacher action must be integer 0, 1, or 2; got {value!r}")
+    if value not in ACTION_INDEX_TO_BATTERY_ACTION:
+        raise ValueError(f"teacher action must be integer 0, 1, or 2; got {value!r}")
+    return value
 
 
 def fit_threshold_rule(samples: list[TeacherSample]) -> DistillationReport:

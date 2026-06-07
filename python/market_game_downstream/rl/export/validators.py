@@ -199,7 +199,9 @@ def _validate_top_level_node(node: ast.AST) -> None:
             "submission top level may only contain imports, constants, "
             "and function definitions"
         )
-    if isinstance(node, ast.Expr) and not isinstance(node.value, (ast.Constant, ast.JoinedStr)):
+    if isinstance(node, ast.FunctionDef):
+        _validate_function_def_import_safety(node)
+    if isinstance(node, ast.Expr) and not isinstance(node.value, ast.Constant):
         raise SubmissionValidationError(
             "submission must not execute runtime expressions at import time"
         )
@@ -207,6 +209,27 @@ def _validate_top_level_node(node: ast.AST) -> None:
         raise SubmissionValidationError(
             "submission top-level assignments must be literal constants"
         )
+
+
+def _validate_function_def_import_safety(node: ast.FunctionDef) -> None:
+    """Reject function syntax that evaluates user code while importing."""
+    if node.decorator_list:
+        raise SubmissionValidationError("submission functions must not use decorators")
+    if node.args.defaults or any(default is not None for default in node.args.kw_defaults):
+        raise SubmissionValidationError("submission functions must not use default arguments")
+    if node.returns is not None:
+        raise SubmissionValidationError("submission functions must not use annotations")
+    all_args = [
+        *node.args.posonlyargs,
+        *node.args.args,
+        *node.args.kwonlyargs,
+    ]
+    if node.args.vararg is not None:
+        all_args.append(node.args.vararg)
+    if node.args.kwarg is not None:
+        all_args.append(node.args.kwarg)
+    if any(arg.annotation is not None for arg in all_args):
+        raise SubmissionValidationError("submission functions must not use annotations")
 
 
 def _validate_ast_node(node: ast.AST) -> None:

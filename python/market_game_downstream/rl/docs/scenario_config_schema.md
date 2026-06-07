@@ -39,7 +39,7 @@ Scenario fields:
 | Field | Required | Meaning |
 |---|---:|---|
 | `name` | Yes | CLI name used by `--scenario`. |
-| `profile_type` | No | Demand profile name, such as `profile1`, `random`, `spike`, `dspike`, or `profile_solar`. |
+| `profile_type` | No | Demand profile name: `profile1`, `profile_solar`, `flat`, `random`, `spike`, or `dspike`. |
 | `seed` | No | Per-scenario seed. Overridden by CLI `--seed` or `--scenario-seed`. |
 | `opponents` | Yes | List of explicit agents, repeated blocks, or grab-bag blocks. |
 

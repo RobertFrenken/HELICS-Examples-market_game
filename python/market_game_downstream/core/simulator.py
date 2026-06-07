@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+import math
 from typing import Protocol
 
 from .config import DEFAULT_CONFIG, MarketGameConfig
@@ -35,6 +36,10 @@ class BatteryState:
         return self.energy
 
     def change(self, delta: float) -> float:
+        if isinstance(delta, bool) or not isinstance(delta, (int, float)):
+            raise ValueError("battery delta must be numeric")
+        if not math.isfinite(float(delta)):
+            raise ValueError("battery delta must be finite")
         eps = 1e-9
         if delta < 0.0:
             discharge = abs(delta)
@@ -200,7 +205,13 @@ def run_scenario(scenario: MarketScenario) -> SimulationResult:
     """Run one complete market-game scenario."""
     config = scenario.config
     demand = list(scenario.demand_profile or config.demand_profile)
+    if len(demand) < config.episode_hours:
+        raise ValueError("scenario demand_profile must contain at least episode_hours values")
     current_price = config.initial_price if scenario.initial_price is None else scenario.initial_price
+    if isinstance(current_price, bool) or not isinstance(current_price, (int, float)):
+        raise ValueError("scenario initial_price must be numeric")
+    if not math.isfinite(float(current_price)):
+        raise ValueError("scenario initial_price must be finite")
     houses = []
     for policy in scenario.policies:
         reset = getattr(policy, "reset", None)
@@ -264,6 +275,10 @@ def step_market_hour(
     config: MarketGameConfig = DEFAULT_CONFIG,
 ) -> tuple[HourRecord, list[HouseHourResult]]:
     """Validate submitted loads, update batteries, and compute next price."""
+    if isinstance(price, bool) or not isinstance(price, (int, float)):
+        raise ValueError("price must be numeric")
+    if not math.isfinite(float(price)):
+        raise ValueError("price must be finite")
     house_results: list[HouseHourResult] = []
     total_market_load = 0.0
     for item in house_inputs:

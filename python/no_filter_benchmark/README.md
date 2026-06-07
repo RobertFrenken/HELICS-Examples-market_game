@@ -4,3 +4,23 @@ It also includes in echo.py, alternative implementations of the echo function, s
 
 For more details examine the comments in echo.py to see how it has implemented its a message echoing function.
 
+## Plotting saved results
+
+The checked-in pickle files are benchmark outputs from previous runs:
+
+- `results_without_filter.pickle`
+- `results_with_filter.pickle`
+
+Regenerate labeled PNG plots from those files without rerunning HELICS:
+
+```bash
+python3 plot_results.py
+```
+
+This writes ignored generated images in this directory:
+
+- `without_filter.png`
+- `with_filter.png`
+- `filter_timing_comparison.png`
+
+Use `--output-dir /path/to/plots` to write the images elsewhere.

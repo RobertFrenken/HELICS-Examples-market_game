@@ -14,6 +14,11 @@ from python.market_game_downstream.rl.envs.env import MarketGameEnv
 
 
 def run_env_smoke_check() -> None:
+    default_env = MarketGameEnv()
+    assert len({policy.name for policy in default_env.opponent_policies}) == len(
+        default_env.opponent_policies
+    )
+
     for mode, schema in OBSERVATION_SCHEMAS.items():
         expected_dim = len(schema)
         assert expected_dim == len(set(schema)), mode
