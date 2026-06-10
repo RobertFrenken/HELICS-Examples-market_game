@@ -34,6 +34,15 @@ Evaluate the weekly scenario curriculum:
 python3 -m python.market_game_downstream.rl.evaluate_scenarios
 ```
 
+Scenario CSV rows include total cost/load, final battery, clamp count,
+invalid-load adjustment, invalid-demand penalty cost, and price volatility.
+
+Run a repeatable multi-seed sweep:
+
+```bash
+python3 -m python.market_game_downstream.rl.evaluate_scenarios --seeds 1,2,3
+```
+
 Evaluate one named scenario from the default JSON scenario registry:
 
 ```bash

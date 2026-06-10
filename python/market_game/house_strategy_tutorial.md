@@ -4,16 +4,16 @@ This guide explains how the market price moves, how the example houses respond,
 and what behavior you should expect when you run them together.
 
 If you want the quick "how do I edit a house?" guide, start with
-[market_game.md](/c:/CodeProjects/HELICS-Examples/python/market_game/market_game.md).
+[market_game.md](market_game.md).
 This document goes deeper and is meant to help players build intuition.
 
 The basic local run instructions live in
-[market_game.md](/c:/CodeProjects/HELICS-Examples/python/market_game/market_game.md),
+[market_game.md](market_game.md),
 and this tutorial assumes that same launcher flow.
 
 ## Reproducing The Example Run
 
-From [python/market_game](/c:/CodeProjects/HELICS-Examples/python/market_game):
+From `python/market_game`:
 
 ```powershell
 python run_neighborhood.py houses
@@ -91,7 +91,7 @@ Every house has the same battery:
 - Max charge rate: `5` kWh per hour
 - Max discharge rate: `10` kWh per hour
 
-The base [House](/c:/CodeProjects/HELICS-Examples/python/market_game/house_template.py)
+The base [House](house_template.py)
 template checks the return value from `compute_demand()`. If the requested
 value is outside the legal battery range, it clamps the value back into range
 and prints a warning.
@@ -118,7 +118,7 @@ Those four questions explain most of the behavior you will see.
 ### `TestHouse`
 
 Source:
-[house_test.py](/c:/CodeProjects/HELICS-Examples/python/market_game/houses/house_test.py)
+[house_test.py](houses/house_test.py)
 
 Core logic:
 
@@ -144,7 +144,7 @@ Why it is useful:
 ### `FullCycleHouse`
 
 Source:
-[full_cycle_house.py](/c:/CodeProjects/HELICS-Examples/python/market_game/houses/full_cycle_house.py)
+[full_cycle_house.py](houses/full_cycle_house.py)
 
 Core logic:
 
@@ -176,7 +176,7 @@ Why it usually performs poorly:
 ### `FlattenDemandHouse`
 
 Source:
-[flatten_demand_house.py](/c:/CodeProjects/HELICS-Examples/python/market_game/houses/flatten_demand_house.py)
+[flatten_demand_house.py](houses/flatten_demand_house.py)
 
 Core logic:
 
@@ -214,7 +214,7 @@ Limitation:
 ### `PriceAwareHouse`
 
 Source:
-[price_aware_house.py](/c:/CodeProjects/HELICS-Examples/python/market_game/houses/price_aware_house.py)
+[price_aware_house.py](houses/price_aware_house.py)
 
 Core logic:
 
@@ -253,7 +253,7 @@ Why it performed best in the example run:
 Using:
 
 - the default `profile1` demand profile
-- [run_neighborhood.py](/c:/CodeProjects/HELICS-Examples/python/market_game/run_neighborhood.py)
+- [run_neighborhood.py](run_neighborhood.py)
 - the example houses `FlattenDemandHouse`, `FullCycleHouse`, and
   `PriceAwareHouse`
 
@@ -385,8 +385,8 @@ examples:
 
 If you want to learn by editing the examples, try these in order:
 
-1. Start from [house_test.py](/c:/CodeProjects/HELICS-Examples/python/market_game/houses/house_test.py) and change the `+2` and `-2` values.
-2. Modify [flatten_demand_house.py](/c:/CodeProjects/HELICS-Examples/python/market_game/houses/flatten_demand_house.py) so it aims slightly below the daily average instead of exactly at it.
-3. Modify [price_aware_house.py](/c:/CodeProjects/HELICS-Examples/python/market_game/houses/price_aware_house.py) and change the thresholds `0.12`, `0.19`, `0.25`, and `0.49`.
+1. Start from [house_test.py](houses/house_test.py) and change the `+2` and `-2` values.
+2. Modify [flatten_demand_house.py](houses/flatten_demand_house.py) so it aims slightly below the daily average instead of exactly at it.
+3. Modify [price_aware_house.py](houses/price_aware_house.py) and change the thresholds `0.12`, `0.19`, `0.25`, and `0.49`.
 4. Change the reserve targets in `PriceAwareHouse.reserve_target()`.
 5. Compare how the winner changes under a different runner profile such as `random` or `profile_solar`.

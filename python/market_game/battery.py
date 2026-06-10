@@ -1,53 +1,48 @@
 from dataclasses import dataclass
 
-BATTERY_CAPCITY = 20.0  # Maximum battery capacity in kWh
+BATTERY_CAPCITY = 20.0  # Backward-compatible misspelling.
+BATTERY_CAPACITY = BATTERY_CAPCITY  # Maximum battery capacity in kWh
 
 BATTERY_MAX_DISCHARGE = 10.0  # Maximum discharge rate in kWh
 BATTERY_MAX_CHARGE = 5.0  # Maximum charge rate in kWh
 
+
 @dataclass
 class Battery:
-    energy: float=0
-    
-    def current_charge(self)->float:
+    energy: float = 0
+
+    def current_charge(self) -> float:
         return self.energy
-    
-    def discharge(self,delta:float)->float:
-        """ discharge the battery by a given value
-        assumed to be in 1 hour
-        """
-        delta=abs(delta)
-        if delta>self.energy:
+
+    def discharge(self, delta: float) -> float:
+        """Discharge the battery by ``delta`` kWh over one hour."""
+        delta = abs(delta)
+        if delta > self.energy:
             raise ValueError("requested discharge exceeds current charge level")
-        if delta>BATTERY_MAX_DISCHARGE:
+        if delta > BATTERY_MAX_DISCHARGE:
             raise ValueError("requested discharge exceeds maximum discharge rate (10)")
-        self.energy-=delta
+        self.energy -= delta
         return self.energy
-    
-    def charge(self,delta:float)->float:
-        """ charge the battery by a given value
-        assumed to be in 1 hour
-        """
-        delta=abs(delta)
-        if self.energy+delta>BATTERY_CAPCITY:
+
+    def charge(self, delta: float) -> float:
+        """Charge the battery by ``delta`` kWh over one hour."""
+        delta = abs(delta)
+        if self.energy + delta > BATTERY_CAPCITY:
             raise ValueError("requested charge exceeds maximum capacity")
-        if delta>BATTERY_MAX_CHARGE:
+        if delta > BATTERY_MAX_CHARGE:
             raise ValueError("requested charge rate exceeds maximum rate (5)")
-        self.energy+=delta
+        self.energy += delta
         return self.energy
-    
-    def change(self, delta:float)->float:
-        """ charge(positive value) or discharge(negative value) the battery by a given value
-        assumed to be in 1 hour
-        """
-        if delta<0.0:
+
+    def change(self, delta: float) -> float:
+        """Apply a signed battery change in kWh over one hour."""
+        if delta < 0.0:
             return self.discharge(delta)
-        else:
-            return self.charge(delta)
-        
-def ensure_valid(value:float, current_consumption:float, battery:Battery)-> float:
-    """ Ensure the value is within the valid range based on current demand and battery state.
-    """
+        return self.charge(delta)
+
+
+def ensure_valid(value: float, current_consumption: float, battery: Battery) -> float:
+    """Clamp market load to the valid range for current demand and battery state."""
     upper_bound = current_consumption + min(
         BATTERY_MAX_CHARGE,
         BATTERY_CAPCITY - battery.current_charge(),
@@ -58,9 +53,9 @@ def ensure_valid(value:float, current_consumption:float, battery:Battery)-> floa
     )
     return min(max(value, lower_bound), upper_bound)
 
-def check_valid(value:float, current_consumption:float, battery:Battery)-> str:
-    """ check if the value of consumption is within the valid range based on current consumption and battery state.
-    """
+
+def check_valid(value: float, current_consumption: float, battery: Battery) -> str:
+    """Return a warning if market load violates battery constraints."""
     remaining_capacity = BATTERY_CAPCITY - battery.current_charge()
     max_charge = min(BATTERY_MAX_CHARGE, remaining_capacity)
     max_discharge = min(BATTERY_MAX_DISCHARGE, battery.current_charge())

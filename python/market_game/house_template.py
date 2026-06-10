@@ -33,14 +33,14 @@ If your strategy asks for an invalid amount, the template will warn you and
 clamp it back into the legal range so the game can keep running.
 """
 
-import helics as h
+from abc import ABC, abstractmethod
 import json
 
-from abc import ABC, abstractmethod
-
+import helics as h
 import matplotlib.pyplot as plt
 
-from battery import Battery,check_valid,ensure_valid
+from battery import Battery, check_valid, ensure_valid
+
 
 class House(ABC):
     """Base class for a market-game house.
@@ -58,7 +58,7 @@ class House(ABC):
         self.prices = []
         self.actual_cost = []
         self.battery_state = []
-        
+
         self.totalCost = 0.0
         self.current_time = 0
         self.connection = connection
@@ -69,7 +69,14 @@ class House(ABC):
         self.connect()
 
     @abstractmethod
-    def compute_demand(self, price:float, hour:int, battery_charge:float, demand:list[float], price_history:list[float])->float:
+    def compute_demand(
+        self,
+        price: float,
+        hour: int,
+        battery_charge: float,
+        demand: list[float],
+        price_history: list[float],
+    ) -> float:
         """Return the market demand for one hour.
 
         This is the main function players should customize.
@@ -80,71 +87,86 @@ class House(ABC):
         - smaller than `demand[hour]` discharges the battery
         """
         pass
-    
-    def connect(self):
+
+    def connect(self) -> None:
         fedinfo = h.helicsCreateFederateInfo()
         h.helicsFederateInfoSetCoreType(fedinfo, h.HELICS_CORE_TYPE_ZMQ_SS)
         # In most local games this stays as "localhost".
         h.helicsFederateInfoSetBroker(fedinfo, self.connection)
         h.helicsFederateInfoSetTimeProperty(fedinfo, h.helics_property_time_period, 1.0)
-        
+
         # Create the HELICS federate for this house.
         self.federate = h.helicsCreateCombinationFederate(self.name, fedinfo)
         print(f"Created federate {self.name}")
         # Receive the hourly price from the market maker.
         self.price = self.federate.register_subscription("price", "$/kWh")
-        
+
         # Send this house's chosen load back to the market maker.
         self.demand_pub = self.federate.register_publication("demand", "float", "kWh")
-        
+
         # Enter initializing mode so the market maker can send our demand profile.
         self.federate.enter_initializing_mode()
-        
+
         # Read the 24-hour demand profile assigned to this house.
         print("getting the demand profile")
         demand_profile_json = h.helicsFederateWaitCommand(self.federate)
         self.demand = json.loads(demand_profile_json)["demand"]
-        
+
         # Enter executing mode
         self.federate.enter_executing_mode()
 
-    def run(self):
-        
-        while self.current_time<24:
+    def run(self) -> None:
+        while self.current_time < 24:
             # Get the current market price.
-            current_price=h.helicsInputGetDouble(self.price)
+            current_price = h.helicsInputGetDouble(self.price)
             self.prices.append(current_price)
             # Base house load before battery use.
-            current_demand=self.demand[int(self.current_time)]
+            hour = int(self.current_time)
+            current_demand = self.demand[hour]
             # Call the player strategy.
-            computed_demand=self.compute_demand(current_price,int(self.current_time),self.battery.current_charge(),self.demand,self.prices)
+            computed_demand = self.compute_demand(
+                current_price,
+                hour,
+                self.battery.current_charge(),
+                self.demand,
+                self.prices,
+            )
             # Keep the strategy inside the battery limits.
-            warning=check_valid(computed_demand,current_demand, self.battery)
+            warning = check_valid(computed_demand, current_demand, self.battery)
             if warning:
                 # Clamp invalid values so the house can keep running.
-                print(f"invalid demand computed={computed_demand} warning={warning}, recalculating with new value")
-                computed_demand=ensure_valid(computed_demand,current_demand, self.battery)
+                print(
+                    f"invalid demand computed={computed_demand} warning={warning}, "
+                    "recalculating with new value"
+                )
+                computed_demand = ensure_valid(computed_demand, current_demand, self.battery)
             self.actual_load.append(computed_demand)
             # Positive delta charges the battery, negative delta discharges it.
-            self.battery.change(computed_demand-current_demand)
+            battery_delta = computed_demand - current_demand
+            self.battery.change(battery_delta)
             # Save values for the summary plot.
             self.battery_state.append(self.battery.current_charge())
-            self.actual_cost.append(current_price*computed_demand)
-            print(f"hour {int(self.current_time)}:price={current_price}, house_demand={current_demand}, load={computed_demand}, battery delta= {computed_demand-current_demand} battery charge={self.battery.current_charge()} cost={computed_demand*current_price}")
+            cost = current_price * computed_demand
+            self.actual_cost.append(cost)
+            print(
+                f"hour {hour}: price={current_price}, house_demand={current_demand}, "
+                f"load={computed_demand}, battery_delta={battery_delta}, "
+                f"battery_charge={self.battery.current_charge()}, cost={cost}"
+            )
             # Publish the decision and move to the next hour.
             self.demand_pub.publish(computed_demand)
-            self.current_time=self.federate.request_next_step()
-    
+            self.current_time = self.federate.request_next_step()
+
         print(f"total load={sum(self.actual_load)}, total_cost={sum(self.actual_cost)}")
         self.federate.disconnect()
-        
-    def plot_results(self):
+
+    def plot_results(self) -> None:
         time = list(range(24))
         figure, axis = plt.subplots(2, 2)
 
         # For demand
-        axis[0, 0].plot(time, self.demand, color='r', label='consumption')
-        axis[0, 0].plot(time, self.actual_load, color='g', label='load')
+        axis[0, 0].plot(time, self.demand, color="r", label="consumption")
+        axis[0, 0].plot(time, self.actual_load, color="g", label="load")
         axis[0, 0].set_title("Demand profiles")
 
         # For price
@@ -161,5 +183,3 @@ class House(ABC):
 
         # Combine all the operations and display
         plt.show()
-
-    

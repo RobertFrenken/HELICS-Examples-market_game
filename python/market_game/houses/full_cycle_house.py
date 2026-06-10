@@ -13,7 +13,7 @@ and out of the battery.
 
 import argparse
 
-from battery import BATTERY_CAPCITY, BATTERY_MAX_CHARGE, BATTERY_MAX_DISCHARGE
+from battery import BATTERY_CAPACITY, BATTERY_MAX_CHARGE, BATTERY_MAX_DISCHARGE
 from house_template import House
 
 
@@ -35,13 +35,13 @@ class FullCycleHouse(House):
         """Return demand that fully charges or discharges regardless of price."""
         del price, price_history
 
-        if self.charging and battery_charge >= BATTERY_CAPCITY:
+        if self.charging and battery_charge >= BATTERY_CAPACITY:
             self.charging = False
         elif (not self.charging) and battery_charge <= 0.0:
             self.charging = True
 
         if self.charging:
-            charge_amount = min(BATTERY_MAX_CHARGE, BATTERY_CAPCITY - battery_charge)
+            charge_amount = min(BATTERY_MAX_CHARGE, BATTERY_CAPACITY - battery_charge)
             return demand[hour] + charge_amount
 
         discharge_amount = min(BATTERY_MAX_DISCHARGE, battery_charge)

@@ -17,7 +17,8 @@ from python.market_game_downstream.core import (
     PROFILE_TYPES,
     demand_profile,
 )
-from python.market_game_downstream.core.simulator import HousePolicy, run_scenario
+from python.market_game_downstream.core.simulator import HourRecord, HousePolicy, run_scenario
+from python.market_game_downstream.rl.core.metrics import result_price_volatility
 from .agents.policies import (
     FlattenDemandPolicy,
     FollowDemandPolicy,
@@ -62,7 +63,9 @@ class CompetitionScenario:
         return demand_profile(self.profile_type, rng=random.Random(self.seed))
 
     def policies(self) -> list[HousePolicy]:
-        return [factory() for factory in self.policy_factories]
+        policies = [factory() for factory in self.policy_factories]
+        _validate_unique_policy_names(self.name, policies)
+        return policies
 
     def to_market_scenario(self) -> MarketScenario:
         return MarketScenario(
@@ -108,6 +111,8 @@ def load_scenarios(
     """
     config_path = Path(path) if path is not None else SCENARIO_CONFIG_PATH
     data = json.loads(config_path.read_text(encoding="utf-8"))
+    if not isinstance(data, dict):
+        raise ValueError("scenario config must be a JSON object")
     default_seed = _int_value(data.get("seed", 1), "scenario config seed")
     scenarios = data.get("scenarios", [])
     if not isinstance(scenarios, list):
@@ -196,6 +201,23 @@ def _validate_unique_names(scenarios: list[CompetitionScenario]) -> None:
     if duplicates:
         names = ", ".join(sorted(set(duplicates)))
         raise ValueError(f"duplicate scenario name(s): {names}")
+
+
+def _validate_unique_policy_names(
+    scenario_name: str,
+    policies: list[HousePolicy],
+) -> None:
+    seen: set[str] = set()
+    duplicates: list[str] = []
+    for policy in policies:
+        if policy.name in seen:
+            duplicates.append(policy.name)
+        seen.add(policy.name)
+    if duplicates:
+        names = ", ".join(sorted(set(duplicates)))
+        raise ValueError(
+            f"scenario {scenario_name!r} has duplicate policy name(s): {names}"
+        )
 
 
 def _scenario_from_config(
@@ -427,9 +449,15 @@ def _resolve_placeholders(
     if isinstance(value, str) and value == "$seed-$local_index":
         return scenario_seed - local_index
     if isinstance(value, str) and value.startswith("$seed+"):
-        return scenario_seed + int(value.removeprefix("$seed+"))
+        suffix = value.removeprefix("$seed+")
+        if not suffix.lstrip("-").isdigit():
+            raise ValueError(f"invalid seed placeholder {value!r}")
+        return scenario_seed + int(suffix)
     if isinstance(value, str) and value.startswith("$seed-"):
-        return scenario_seed - int(value.removeprefix("$seed-"))
+        suffix = value.removeprefix("$seed-")
+        if not suffix.lstrip("-").isdigit():
+            raise ValueError(f"invalid seed placeholder {value!r}")
+        return scenario_seed - int(suffix)
     if isinstance(value, str):
         return (
             value.replace("$local_index", str(local_index))
@@ -519,7 +547,11 @@ def _kwargs_dict(value: object) -> dict[str, object]:
 def evaluate_scenario(scenario: CompetitionScenario) -> list[dict[str, str]]:
     """Run one scenario and return CSV-friendly summary rows."""
     result = run_scenario(scenario.to_market_scenario())
-    return [_summary_row(scenario, house) for house in result.houses]
+    volatility = result_price_volatility(result)
+    return [
+        _summary_row(scenario, house, result.records, volatility)
+        for house in result.houses
+    ]
 
 
 def evaluate_curriculum(seed: int = 1) -> list[dict[str, str]]:
@@ -530,7 +562,20 @@ def evaluate_curriculum(seed: int = 1) -> list[dict[str, str]]:
     ]
 
 
-def _summary_row(scenario: CompetitionScenario, house: object) -> dict[str, str]:
+def _summary_row(
+    scenario: CompetitionScenario,
+    house: object,
+    records: list[HourRecord],
+    price_volatility: float,
+) -> dict[str, str]:
+    penalty_cost = sum(
+        record.penalties_by_house.get(house.policy.name, 0.0)
+        for record in records
+    )
+    invalid_load_adjustment = sum(
+        record.invalid_load_adjustments_by_house.get(house.policy.name, 0.0)
+        for record in records
+    )
     return {
         "scenario": scenario.name,
         "agent": house.policy.name,
@@ -541,4 +586,7 @@ def _summary_row(scenario: CompetitionScenario, house: object) -> dict[str, str]
         "final_battery": f"{house.battery.energy:.10f}",
         "boundary_warnings": str(len(house.boundary_warnings)),
         "clamps": str(house.clamps),
+        "invalid_load_adjustment": f"{invalid_load_adjustment:.10f}",
+        "penalty_cost": f"{penalty_cost:.10f}",
+        "price_volatility": f"{price_volatility:.10f}",
     }

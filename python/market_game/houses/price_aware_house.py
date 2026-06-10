@@ -13,7 +13,7 @@ useful starting point for players who want a price-aware strategy.
 
 import argparse
 
-from battery import BATTERY_CAPCITY, BATTERY_MAX_CHARGE, BATTERY_MAX_DISCHARGE
+from battery import BATTERY_CAPACITY, BATTERY_MAX_CHARGE, BATTERY_MAX_DISCHARGE
 from house_template import House
 
 
@@ -45,7 +45,7 @@ class PriceAwareHouse(House):
         del price_history
 
         base_demand = demand[hour]
-        remaining_capacity = BATTERY_CAPCITY - battery_charge
+        remaining_capacity = BATTERY_CAPACITY - battery_charge
         reserve = self.reserve_target(hour)
         available_discharge = max(0.0, battery_charge - reserve)
 

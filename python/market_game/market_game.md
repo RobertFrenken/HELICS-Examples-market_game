@@ -14,11 +14,11 @@ If you are new to HELICS, the important thing to know is this:
 
 For a deeper walkthrough of the price pattern, the example house behaviors, and
 the verified example run results, see
-[house_strategy_tutorial.md](/c:/CodeProjects/HELICS-Examples/python/market_game/house_strategy_tutorial.md).
+[house_strategy_tutorial.md](house_strategy_tutorial.md).
 
 ## What To Edit
 
-Start from [house_template.py](/c:/CodeProjects/HELICS-Examples/python/market_game/house_template.py).
+Start from [house_template.py](house_template.py).
 The usual workflow is:
 
 1. Copy it into `python/market_game/houses/`, for example `my_house.py`.
@@ -26,22 +26,22 @@ The usual workflow is:
 3. Implement `compute_demand(...)`.
 4. Instantiate your house with a unique name in `if __name__ == "__main__":`.
 
-You can use [house_test.py](/c:/CodeProjects/HELICS-Examples/python/market_game/houses/house_test.py)
+You can use [house_test.py](houses/house_test.py)
 as a simple example.
 
 `house_test.py` is meant as a starter example to read and copy, but it is not
 picked up by `run_neighborhood.py` with the default settings because its file
 name does not end in `_house.py`.
 
-There is also [full_cycle_house.py](/c:/CodeProjects/HELICS-Examples/python/market_game/houses/full_cycle_house.py),
+There is also [full_cycle_house.py](houses/full_cycle_house.py),
 which ignores price and simply charges the battery to full, then discharges it
 to empty, as a useful baseline strategy.
 
-Another example is [flatten_demand_house.py](/c:/CodeProjects/HELICS-Examples/python/market_game/houses/flatten_demand_house.py),
+Another example is [flatten_demand_house.py](houses/flatten_demand_house.py),
 which ignores price and uses the battery to make the house's market demand as
 flat as possible across the day.
 
-For a price-aware example, see [price_aware_house.py](/c:/CodeProjects/HELICS-Examples/python/market_game/houses/price_aware_house.py),
+For a price-aware example, see [price_aware_house.py](houses/price_aware_house.py),
 which charges when the price is cheap, discharges when it is expensive, and
 tries not to waste stored energy at the end of the day.
 
@@ -149,7 +149,7 @@ This summary graphic is useful when you want a quick mental model of the tiers:
 
 ## Running A Local Round
 
-From [python/market_game](/c:/CodeProjects/HELICS-Examples/python/market_game):
+From `python/market_game`:
 
 1. Put one or more player files in `houses/` with names matching `*_house.py`.
 2. Generate the runner file:
@@ -182,23 +182,23 @@ python run_neighborhood.py houses --pattern "*house*.py"
 
 For a strategy-focused walkthrough of what those example houses actually do in a
 run, including hourly loads and costs, see
-[house_strategy_tutorial.md](/c:/CodeProjects/HELICS-Examples/python/market_game/house_strategy_tutorial.md).
+[house_strategy_tutorial.md](house_strategy_tutorial.md).
 
 ## Files In This Example
 
-- [house_template.py](/c:/CodeProjects/HELICS-Examples/python/market_game/house_template.py):
+- [house_template.py](house_template.py):
   base class and player template
-- [houses/house_test.py](/c:/CodeProjects/HELICS-Examples/python/market_game/houses/house_test.py):
+- [houses/house_test.py](houses/house_test.py):
   example player strategy
-- [houses/full_cycle_house.py](/c:/CodeProjects/HELICS-Examples/python/market_game/houses/full_cycle_house.py):
+- [houses/full_cycle_house.py](houses/full_cycle_house.py):
   example strategy that cycles the battery without using price
-- [houses/flatten_demand_house.py](/c:/CodeProjects/HELICS-Examples/python/market_game/houses/flatten_demand_house.py):
+- [houses/flatten_demand_house.py](houses/flatten_demand_house.py):
   example strategy that smooths demand across the day without using price
-- [houses/price_aware_house.py](/c:/CodeProjects/HELICS-Examples/python/market_game/houses/price_aware_house.py):
+- [houses/price_aware_house.py](houses/price_aware_house.py):
   example strategy that reacts to price using simple thresholds
-- [market_maker.py](/c:/CodeProjects/HELICS-Examples/python/market_game/market_maker.py):
+- [market_maker.py](market_maker.py):
   game coordinator and price calculation
-- [battery.py](/c:/CodeProjects/HELICS-Examples/python/market_game/battery.py):
+- [battery.py](battery.py):
   battery limits and validation helpers
-- [run_neighborhood.py](/c:/CodeProjects/HELICS-Examples/python/market_game/run_neighborhood.py):
+- [run_neighborhood.py](run_neighborhood.py):
   helper that builds `houses.json` for `helics run`

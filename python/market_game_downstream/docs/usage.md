@@ -57,6 +57,17 @@ metric.
 Invalid demand handling, penalty accounting, adjustment diagnostics, and
 combined-bound clamping are documented in `invalid_demand_behavior.md`.
 
+For configurable scenario evaluation with the same diagnostic columns, use:
+
+```bash
+python3 -m python.market_game_downstream.rl.evaluate_scenarios
+```
+
+Scenario CSV rows include `invalid_load_adjustment`, `penalty_cost`, and
+`price_volatility` in addition to the basic cost/load fields.
+
+Use `--seeds 1,2,3` for repeated scenario sweeps.
+
 Pure simulations may also be built directly with `python.market_game_downstream.core`:
 
 ```python

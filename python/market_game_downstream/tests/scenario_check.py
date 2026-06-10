@@ -9,9 +9,11 @@ import tempfile
 from python.market_game_downstream.core.simulator import run_scenario
 from python.market_game_downstream.rl.scenarios import (
     evaluate_curriculum,
+    evaluate_scenario,
     load_scenarios,
     stock_example_scenario,
 )
+from python.market_game_downstream.rl.evaluate_scenarios import _parse_seed_list
 
 
 def assert_config_error(config: object, expected: str) -> None:
@@ -34,6 +36,14 @@ def run_scenario_smoke_check() -> None:
 
     rows = evaluate_curriculum(seed=3)
     assert rows
+    stock_rows = evaluate_scenario(stock_example_scenario())
+    for row in stock_rows:
+        assert "invalid_load_adjustment" in row
+        assert "penalty_cost" in row
+        assert "price_volatility" in row
+        assert float(row["invalid_load_adjustment"]) == 0.0
+        assert float(row["penalty_cost"]) == 0.0
+        assert float(row["price_volatility"]) > 0.0
     loaded = load_scenarios(seed=3)
     assert [scenario.name for scenario in loaded] == [
         "week_1_baselines",
@@ -72,6 +82,10 @@ def run_scenario_smoke_check() -> None:
         float(row["final_battery"])
 
     assert_config_error(
+        [],
+        "scenario config must be a JSON object",
+    )
+    assert_config_error(
         {
             "scenarios": [
                 {"name": "duplicate", "opponents": []},
@@ -107,6 +121,17 @@ def run_scenario_smoke_check() -> None:
         {
             "scenarios": [
                 {
+                    "name": "unknown_policy",
+                    "opponents": ["TypoPolicy"],
+                }
+            ]
+        },
+        "unknown policy type",
+    )
+    assert_config_error(
+        {
+            "scenarios": [
+                {
                     "name": "bad_kwargs",
                     "opponents": [{"type": "PriceAwarePolicy", "kwargs": []}],
                 }
@@ -130,6 +155,54 @@ def run_scenario_smoke_check() -> None:
         },
         "grab_bag weight",
     )
+    assert_config_error(
+        {
+            "scenarios": [
+                {
+                    "name": "bad_placeholder",
+                    "opponents": [
+                        {
+                            "type": "NoisyThresholdPolicy",
+                            "kwargs": {"seed": "$seed+bad"},
+                        }
+                    ],
+                }
+            ]
+        },
+        "invalid seed placeholder",
+    )
+    with tempfile.TemporaryDirectory() as temp_dir:
+        path = Path(temp_dir) / "scenarios.json"
+        path.write_text(
+            json.dumps(
+                {
+                    "scenarios": [
+                        {
+                            "name": "duplicate_policy_names",
+                            "opponents": [
+                                {"type": "PriceAwarePolicy", "count": 2},
+                            ],
+                        }
+                    ]
+                }
+            ),
+            encoding="utf-8",
+        )
+        duplicate_name_scenario = load_scenarios(path)[0]
+        try:
+            duplicate_name_scenario.policies()
+        except ValueError as exc:
+            assert "duplicate policy name" in str(exc)
+        else:
+            raise AssertionError("duplicate policy names were not rejected")
+
+    assert _parse_seed_list("1, 2,3") == [1, 2, 3]
+    try:
+        _parse_seed_list("1,bad")
+    except SystemExit as exc:
+        assert "invalid seed" in str(exc)
+    else:
+        raise AssertionError("invalid seed list was not rejected")
 
 
 if __name__ == "__main__":

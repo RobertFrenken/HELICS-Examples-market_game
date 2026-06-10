@@ -10,9 +10,10 @@ You normally do not need to edit the `__main__` block except to give your house
 an identifying name.
 """
 
+import argparse
+
 from house_template import House
 
-import argparse
 
 class TestHouse(House):
     """Simple example strategy.
@@ -24,7 +25,14 @@ class TestHouse(House):
     def __init__(self, name: str, connection: str = "localhost"):
         super().__init__(name, connection)
 
-    def compute_demand(self, price: float, hour: int, battery_charge: float, demand: list[float], price_history: list[float]) -> float:
+    def compute_demand(
+        self,
+        price: float,
+        hour: int,
+        battery_charge: float,
+        demand: list[float],
+        price_history: list[float],
+    ) -> float:
         """Return this hour's market demand.
 
         Edit this method to create your own strategy.
@@ -34,12 +42,14 @@ class TestHouse(House):
         - return more than `demand[hour]` to charge the battery
         - return less than `demand[hour]` to discharge the battery
         """
+        del price, price_history
+
         # Example strategy: charge by 2 kWh until the battery has energy,
         # then discharge by 2 kWh.
         if battery_charge == 0:
             return demand[hour] + 2
-        else:
-            return demand[hour] - 2
+        return demand[hour] - 2
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="market game house federate commands")
@@ -48,8 +58,7 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
     # Change "TestHouse" to the unique player name you want shown in the game.
-    house=TestHouse("TestHouse",args.broker)
+    house = TestHouse("TestHouse", args.broker)
     house.run()
     if not args.no_plot:
         house.plot_results()
-    

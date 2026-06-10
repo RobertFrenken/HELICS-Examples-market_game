@@ -1,9 +1,9 @@
 # Invalid Demand Behavior, Penalty, and Clamp Bug
 
-**First PR candidate:** this behavior should be documented and tested in one of
-the first upstream PRs, ideally with the dependency-free market rules/simulator
-and parity checks. The downstream simulator now clamps with combined legal
-bounds so validation always returns a battery-safe market load.
+This behavior is implemented in the downstream simulator and was the basis for
+the accepted upstream invalid-demand runtime fix. The downstream simulator
+clamps with combined legal bounds so validation always returns a battery-safe
+market load.
 
 ## Current Intended Behavior
 
@@ -97,7 +97,7 @@ penaltyCost = 20 * abs(load - valid_load)
 ```
 
 but did not add that value to `fed.hourCost`; the recorded hourly cost was still
-`load * current_price` after clamping. The intended fix is to add
+`load * current_price` after clamping. The accepted upstream fix adds
 `penaltyCost` to `fed.hourCost` so invalid submissions are strictly worse than
 valid boundary actions.
 

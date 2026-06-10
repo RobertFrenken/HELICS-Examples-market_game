@@ -10,7 +10,7 @@ always hit the target exactly. It simply moves as close as possible each hour.
 
 import argparse
 
-from battery import BATTERY_CAPCITY, BATTERY_MAX_CHARGE, BATTERY_MAX_DISCHARGE
+from battery import BATTERY_CAPACITY, BATTERY_MAX_CHARGE, BATTERY_MAX_DISCHARGE
 from house_template import House
 
 
@@ -39,7 +39,7 @@ class FlattenDemandHouse(House):
             charge_amount = min(
                 desired_change,
                 BATTERY_MAX_CHARGE,
-                BATTERY_CAPCITY - battery_charge,
+                BATTERY_CAPACITY - battery_charge,
             )
             return base_demand + charge_amount
 

@@ -121,6 +121,15 @@ def run_export_smoke_check() -> None:
         "def compute_demand(price=open, hour=0, battery_charge=0, demand=None, price_history=None):\n"
         "    return demand[hour]\n"
     )
+    assert_unsafe_submission(
+        "import os\n"
+        "def compute_demand(price, hour, battery_charge, demand, price_history):\n"
+        "    return demand[hour]\n"
+    )
+    assert_unsafe_submission(
+        "def compute_demand(price, hour, battery_charge, demand, price_history):\n"
+        "    return eval('1')\n"
+    )
 
 
 if __name__ == "__main__":

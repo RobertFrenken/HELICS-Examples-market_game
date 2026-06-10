@@ -12,11 +12,11 @@ training runs.
 
 Tasks:
 
-- Add a multi-seed scenario sweep command for fixed policies and PPO
-  checkpoints.
-- Report mean cost, standard deviation, min/max cost, final battery,
-  clamp count, invalid-load adjustment, invalid-demand penalty cost, and price
-  volatility.
+- Use `evaluate_scenarios --seeds ...` for fixed-policy multi-seed sweeps, and
+  add the same checkpoint sweep behavior for PPO.
+- Build multi-seed summaries from scenario CSV rows, which already include
+  final battery, clamp count, invalid-load adjustment, invalid-demand penalty
+  cost, and price volatility.
 - Support a validation scenario config that is not used for teacher-action
   collection.
 - Save CSV output so runs can be compared without reading terminal logs.
