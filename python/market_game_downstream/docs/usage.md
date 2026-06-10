@@ -68,6 +68,16 @@ Scenario CSV rows include `invalid_load_adjustment`, `penalty_cost`, and
 
 Use `--seeds 1,2,3` for repeated scenario sweeps.
 
+Save and aggregate a repeated sweep:
+
+```bash
+python3 -m python.market_game_downstream.rl.evaluate_scenarios --seeds 1,2,3 > /tmp/scenarios.csv
+python3 -m python.market_game_downstream.rl.aggregate_scenarios /tmp/scenarios.csv
+```
+
+The aggregate CSV reports mean, sample standard deviation, min, max, and a
+per-scenario rank by `total_cost_mean` for each policy.
+
 Pure simulations may also be built directly with `python.market_game_downstream.core`:
 
 ```python
@@ -122,3 +132,18 @@ libraries. It maps Gym's `Discrete(3)` action indices as:
 
 Hidden aggregate market values are available only in `info["diagnostics"]`, not
 in the observation vector.
+
+## Scenario Builder
+
+Use the Python builder when a JSON file would be tedious to write by hand:
+
+```bash
+python3 -m python.market_game_downstream.rl.scenario_builder --output /tmp/custom_scenarios.json
+python3 -m python.market_game_downstream.rl.evaluate_scenarios --config /tmp/custom_scenarios.json
+```
+
+The builder can describe demand profiles, the controlled RL training agent,
+built-in strategy opponents, submitted `compute_demand` functions, stochastic
+grab-bag populations, and loaded RL checkpoints. Built-in strategies and
+submitted functions run in the pure simulator today; checkpoint players are
+recorded as metadata until a checkpoint-opponent wrapper is added.

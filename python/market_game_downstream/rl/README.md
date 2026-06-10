@@ -43,6 +43,13 @@ Run a repeatable multi-seed sweep:
 python3 -m python.market_game_downstream.rl.evaluate_scenarios --seeds 1,2,3
 ```
 
+Aggregate a saved multi-seed sweep by scenario and policy:
+
+```bash
+python3 -m python.market_game_downstream.rl.evaluate_scenarios --seeds 1,2,3 > /tmp/scenarios.csv
+python3 -m python.market_game_downstream.rl.aggregate_scenarios /tmp/scenarios.csv
+```
+
 Evaluate one named scenario from the default JSON scenario registry:
 
 ```bash
@@ -102,6 +109,21 @@ scenario loading has no YAML dependency. Opponents can be listed by policy
 class name or as objects with `type`, `kwargs`, and optional `count`; stochastic
 policy seeds can use `$seed`, `$seed+N`, `$seed-N`, `$index`, or
 `$seed+$index` placeholders.
+
+For easier authoring, `scenario_builder.py` provides a Python builder that
+creates the same JSON format and records player roles such as RL training
+agents, built-in strategy opponents, submitted `compute_demand` functions, and
+loaded RL checkpoints:
+
+```bash
+python3 -m python.market_game_downstream.rl.scenario_builder --output /tmp/custom_scenarios.json
+python3 -m python.market_game_downstream.rl.evaluate_scenarios --config /tmp/custom_scenarios.json
+```
+
+Built-in strategies and submitted functions are executable in the pure
+simulator. RL training agents are the controlled learner in `GymMarketGameEnv`.
+Loaded RL checkpoints are tracked as scenario metadata until a checkpoint
+opponent wrapper is added.
 
 For the full authoring format, including stochastic `grab_bag` populations, see
 `docs/scenario_config_schema.md`.

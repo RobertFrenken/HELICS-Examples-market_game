@@ -48,6 +48,11 @@ POLICY_TYPES: dict[str, type[HousePolicy]] = {
     "VolatilitySeekingPolicy": VolatilitySeekingPolicy,
 }
 
+SUBMISSION_POLICY_TYPES = {
+    "FunctionSubmissionPolicy",
+    "SubmittedFunctionPolicy",
+}
+
 
 @dataclass(frozen=True)
 class CompetitionScenario:
@@ -393,9 +398,20 @@ def _policy_factory_with_index(
     else:
         raise ValueError("opponent entries must be policy names or objects")
 
+    if policy_type in SUBMISSION_POLICY_TYPES:
+        return _submitted_function_factory(
+            item,
+            kwargs=kwargs,
+            scenario_seed=scenario_seed,
+            copy_index=copy_index,
+            local_index=local_index,
+            house_count=house_count,
+            policy_type=policy_type,
+        )
+
     policy_class = POLICY_TYPES.get(policy_type)
     if policy_class is None:
-        choices = ", ".join(sorted(POLICY_TYPES))
+        choices = ", ".join(sorted([*POLICY_TYPES, *SUBMISSION_POLICY_TYPES]))
         raise ValueError(f"unknown policy type {policy_type!r}; choices: {choices}")
     kwargs = _resolve_placeholders(
         kwargs,
@@ -406,6 +422,58 @@ def _policy_factory_with_index(
         policy_type=policy_type,
     )
     return lambda policy_class=policy_class, kwargs=kwargs: policy_class(**kwargs)
+
+
+def _submitted_function_factory(
+    item: object,
+    kwargs: dict[str, Any],
+    scenario_seed: int,
+    copy_index: int,
+    local_index: int,
+    house_count: int,
+    policy_type: str,
+) -> PolicyFactory:
+    if not isinstance(item, dict):
+        raise ValueError("submitted function policy entries must be objects")
+    path = item.get("path")
+    if not isinstance(path, str) or not path:
+        raise ValueError(
+            "submitted function policy entries must define non-empty string 'path'"
+        )
+    resolved_path = _resolve_placeholders(
+        path,
+        scenario_seed=scenario_seed,
+        copy_index=copy_index,
+        local_index=local_index,
+        house_count=house_count,
+        policy_type=policy_type,
+    )
+    resolved_kwargs = _resolve_placeholders(
+        kwargs,
+        scenario_seed=scenario_seed,
+        copy_index=copy_index,
+        local_index=local_index,
+        house_count=house_count,
+        policy_type=policy_type,
+    )
+    if not isinstance(resolved_path, str):
+        raise ValueError("submitted function policy path must resolve to a string")
+    name = resolved_kwargs.pop("name", "SubmittedHouse")
+    if resolved_kwargs:
+        extra = ", ".join(sorted(resolved_kwargs))
+        raise ValueError(f"unsupported submitted function policy kwargs: {extra}")
+    if not isinstance(name, str) or not name:
+        raise ValueError("submitted function policy name must be a non-empty string")
+
+    def factory(path: str = resolved_path, name: str = name) -> HousePolicy:
+        from python.market_game_downstream.rl.export.export_policy import (
+            FunctionSubmissionPolicy,
+        )
+        from python.market_game_downstream.rl.export.validators import load_compute_demand
+
+        return FunctionSubmissionPolicy(load_compute_demand(path), name=name)
+
+    return factory
 
 
 def _policy_factory(

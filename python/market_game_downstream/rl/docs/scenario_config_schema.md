@@ -12,6 +12,19 @@ python/market_game_downstream/rl/scenario_configs/weekly.json
 python/market_game_downstream/rl/scenario_configs/large_population.json
 ```
 
+For programmatic authoring, use the builder:
+
+```bash
+python3 -m python.market_game_downstream.rl.scenario_builder --output /tmp/custom_scenarios.json
+```
+
+The builder writes the same JSON schema documented here and adds optional
+`players` metadata so a scenario can describe the controlled RL training agent,
+built-in strategy opponents, submitted `compute_demand` functions, and loaded
+RL checkpoints in one place. The loader executes built-in strategies and
+submitted functions through `opponents`. RL checkpoint players are metadata
+only until a checkpoint-opponent wrapper is added.
+
 ## Top Level
 
 ```json
@@ -42,6 +55,7 @@ Scenario fields:
 | `profile_type` | No | Demand profile name: `profile1`, `profile_solar`, `flat`, `random`, `spike`, or `dspike`. |
 | `seed` | No | Per-scenario seed. Overridden by CLI `--seed` or `--scenario-seed`. |
 | `opponents` | Yes | List of explicit agents, repeated blocks, or grab-bag blocks. |
+| `players` | No | Optional builder metadata describing player roles. Ignored by the simulator loader. |
 
 ## Available Agent Types
 
@@ -58,6 +72,21 @@ PriceAwarePolicy
 RollingPricePolicy
 VolatilitySeekingPolicy
 ```
+
+Submitted function policies can also be loaded as executable opponents:
+
+```json
+{
+  "type": "SubmittedFunctionPolicy",
+  "path": "python/market_game_downstream/rl/export/example_threshold_submission.py",
+  "kwargs": {
+    "name": "SubmittedFunctionOpponent"
+  }
+}
+```
+
+The file must define a valid `compute_demand(price, hour, battery_charge,
+demand, price_history)` function accepted by the export validator.
 
 Each type accepts the constructor kwargs from
 `python/market_game_downstream/rl/agents/policies.py`. Common kwargs include:
@@ -234,6 +263,31 @@ String placeholders can also be embedded:
     }
   ]
 }
+```
+
+The same kind of file can be created with the Python builder:
+
+```python
+from python.market_game_downstream.rl.scenario_builder import ScenarioConfigBuilder
+
+builder = ScenarioConfigBuilder(seed=11)
+(
+    builder.scenario("custom_large_random_100", profile_type="random")
+    .training_agent(observation_mode="price_history")
+    .strategies("PriceAwarePolicy", count=20, name_template="PriceAware_$local_index")
+    .grab_bag(
+        count=80,
+        seed="$seed+100",
+        name_template="$type_$index",
+        choices=[
+            {"type": "RollingPricePolicy", "weight": 2},
+            {"type": "NoisyThresholdPolicy", "weight": 4, "kwargs": {"seed": "$seed+$index"}},
+            {"type": "VolatilitySeekingPolicy", "weight": 1},
+            {"type": "LegalInferencePolicy", "weight": 1, "kwargs": {"house_count": "$house_count"}},
+        ],
+    )
+)
+builder.write("/tmp/custom_scenarios.json")
 ```
 
 Run it with:

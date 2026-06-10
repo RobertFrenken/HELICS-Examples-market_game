@@ -62,6 +62,12 @@ paths:
   `penalty_cost`, and `price_volatility`.
 - Added fixed-policy multi-seed scenario sweeps with
   `python3 -m python.market_game_downstream.rl.evaluate_scenarios --seeds 1,2,3`.
+- Added a scenario result aggregator:
+  `python3 -m python.market_game_downstream.rl.aggregate_scenarios`.
+- Added a scenario builder for demand profiles, controlled RL training agents,
+  built-in strategy populations, submitted function opponents, and loaded RL
+  checkpoint metadata:
+  `python3 -m python.market_game_downstream.rl.scenario_builder`.
 - Added extra export-validator negative tests for unsafe imports and runtime
   `eval(...)`.
 
@@ -124,9 +130,9 @@ Open training/evaluation tasks:
 
 1. Add multi-seed scenario sweeps for PPO checkpoints. Fixed-policy scenario
    sweeps are available through `evaluate_scenarios --seeds ...`.
-2. Build aggregate multi-seed summaries from scenario CSV rows. The rows now
-   include final battery, clamp count, invalid-load adjustment, invalid-demand
-   penalty cost, and price volatility.
+2. Add an executable RLlib checkpoint opponent wrapper if loaded checkpoint
+   agents need to participate as peer players inside pure-simulator scenario
+   evaluations. The builder currently records loaded checkpoints as metadata.
 3. Add a held-out validation scenario config that is not used for teacher
    action collection.
 4. Save evaluation CSVs so runs can be compared without reading terminal logs.
@@ -139,10 +145,11 @@ Reference plan: `python/market_game_downstream/rl/docs/rl_tuning_plan.md`.
 
 High-level additions worth doing next:
 
-- Add a scenario result aggregator that reads scenario CSV rows and reports
-  mean, standard deviation, min, max, and rank by policy across seed sweeps.
 - Add PPO checkpoint multi-seed sweeps matching the fixed-policy
   `evaluate_scenarios --seeds ...` workflow.
+- Add a true loaded-checkpoint player wrapper if checkpoint policies should run
+  as market peers rather than only as the controlled RL learner or distillation
+  teacher.
 - Add a held-out validation scenario config for distillation and final policy
   selection.
 - Add one explicit invalid-demand stress scenario so penalty diagnostics are

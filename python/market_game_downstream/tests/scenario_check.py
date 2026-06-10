@@ -7,6 +7,7 @@ from pathlib import Path
 import tempfile
 
 from python.market_game_downstream.core.simulator import run_scenario
+from python.market_game_downstream.rl.aggregate_scenarios import aggregate_rows
 from python.market_game_downstream.rl.scenarios import (
     evaluate_curriculum,
     evaluate_scenario,
@@ -14,6 +15,10 @@ from python.market_game_downstream.rl.scenarios import (
     stock_example_scenario,
 )
 from python.market_game_downstream.rl.evaluate_scenarios import _parse_seed_list
+from python.market_game_downstream.rl.scenario_builder import (
+    ScenarioConfigBuilder,
+    example_builder,
+)
 
 
 def assert_config_error(config: object, expected: str) -> None:
@@ -203,6 +208,82 @@ def run_scenario_smoke_check() -> None:
         assert "invalid seed" in str(exc)
     else:
         raise AssertionError("invalid seed list was not rejected")
+
+    aggregate = aggregate_rows(
+        [
+            row
+            for seed in (1, 2)
+            for scenario in load_scenarios(seed=seed)[:1]
+            for row in evaluate_scenario(scenario)
+        ]
+    )
+    assert aggregate
+    assert "total_cost_mean" in aggregate[0]
+    assert "total_cost_stdev" in aggregate[0]
+    assert {row["rank"] for row in aggregate} == {"1", "2", "3"}
+
+    builder = ScenarioConfigBuilder(seed=7)
+    (
+        builder.scenario("builder_mixed", profile_type="profile1")
+        .training_agent()
+        .strategies(
+            "PriceAwarePolicy",
+            count=2,
+            name_template="BuilderPrice_$local_index",
+        )
+        .loaded_rl_agent("/tmp/checkpoint", name="MetadataOnlyCheckpoint")
+        .grab_bag(
+            count=2,
+            choices=[
+                {
+                    "type": "NoisyThresholdPolicy",
+                    "weight": 1,
+                    "kwargs": {"seed": "$seed+$index"},
+                },
+                {"type": "RollingPricePolicy", "weight": 1},
+            ],
+        )
+    )
+    with tempfile.TemporaryDirectory() as temp_dir:
+        path = Path(temp_dir) / "builder.json"
+        builder.write(path)
+        loaded_builder = load_scenarios(path, seed=9)[0]
+        assert loaded_builder.name == "builder_mixed"
+        assert len(loaded_builder.policies()) == 4
+        assert loaded_builder.policies()[0].name == "BuilderPrice_0"
+
+    with tempfile.TemporaryDirectory() as temp_dir:
+        path = Path(temp_dir) / "example_builder.json"
+        example_builder().write(path)
+        assert load_scenarios(path)
+
+    submission = (
+        Path(__file__).resolve().parents[1]
+        / "rl"
+        / "export"
+        / "example_threshold_submission.py"
+    )
+    submitted_config = {
+        "scenarios": [
+            {
+                "name": "submitted_function",
+                "profile_type": "profile1",
+                "opponents": [
+                    {
+                        "type": "SubmittedFunctionPolicy",
+                        "path": submission.as_posix(),
+                        "kwargs": {"name": "SubmittedFunctionOpponent"},
+                    }
+                ],
+            }
+        ]
+    }
+    with tempfile.TemporaryDirectory() as temp_dir:
+        path = Path(temp_dir) / "submitted.json"
+        path.write_text(json.dumps(submitted_config), encoding="utf-8")
+        submitted = load_scenarios(path)[0]
+        assert submitted.policies()[0].name == "SubmittedFunctionOpponent"
+        assert evaluate_scenario(submitted)
 
 
 if __name__ == "__main__":
