@@ -16,8 +16,8 @@ and this tutorial assumes that same launcher flow.
 From `python/market_game`:
 
 ```powershell
-python run_neighborhood.py houses
-helics run --path=houses.json
+uv run python run_neighborhood.py houses
+uv run helics run --path=houses.json
 ```
 
 That generated runner:
@@ -26,6 +26,8 @@ That generated runner:
 - launches the example `*_house.py` files from `houses/`
 - launches the market maker against the same broker
 - adds `--no-plot` so the run exits cleanly after the 24-hour simulation
+- uses `uv run` for each process by default; use `--launcher plain` when running
+  from an activated pip virtual environment
 
 ## Big Picture
 

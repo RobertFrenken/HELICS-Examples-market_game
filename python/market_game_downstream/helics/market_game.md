@@ -14,9 +14,12 @@ You do not need to understand HELICS to play. Start by editing a house strategy.
 4. From `python/market_game`, run:
 
 ```bash
-python run_neighborhood.py houses
-helics run --path=houses.json
+uv run python run_neighborhood.py houses
+uv run helics run --path=houses.json
 ```
+
+If you are using an activated pip virtual environment instead of uv, generate
+the runner with `python run_neighborhood.py houses --launcher plain`.
 
 ## Easiest Strategy Hook
 

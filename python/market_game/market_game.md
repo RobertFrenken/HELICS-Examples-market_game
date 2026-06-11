@@ -16,6 +16,9 @@ For a deeper walkthrough of the price pattern, the example house behaviors, and
 the verified example run results, see
 [house_strategy_tutorial.md](house_strategy_tutorial.md).
 
+For Python environment setup across uv, pip, Windows, Linux, and macOS, see
+[setup_environment.md](setup_environment.md).
+
 ## What To Edit
 
 Start from [house_template.py](house_template.py).
@@ -149,19 +152,28 @@ This summary graphic is useful when you want a quick mental model of the tiers:
 
 ## Running A Local Round
 
+For detailed Python environment setup, including uv and pip options, see
+[setup_environment.md](setup_environment.md).
+
 From `python/market_game`:
 
-1. Put one or more player files in `houses/` with names matching `*_house.py`.
-2. Generate the runner file:
+1. Install the local uv environment from the repo root:
 
-```powershell
-python run_neighborhood.py houses
+```bash
+uv sync --extra helics
 ```
 
-3. Start the federation:
+2. Put one or more player files in `houses/` with names matching `*_house.py`.
+3. Generate the runner file:
 
 ```powershell
-helics run --path=houses.json
+uv run python run_neighborhood.py houses
+```
+
+4. Start the federation:
+
+```powershell
+uv run helics run --path=houses.json
 ```
 
 This launches:
@@ -170,6 +182,11 @@ This launches:
 - every matching house file in `houses/`
 - the market maker joined to that same broker
 
+The generated runner uses `uv run` for the broker and every federate process,
+so all Python imports and HELICS executables come from the uv-managed `.venv`.
+If you are using an activated pip virtual environment instead, generate the
+runner with `--launcher plain`.
+
 The generated runner also adds `--no-plot`, so automated runs finish cleanly
 without waiting on matplotlib windows.
 
@@ -177,7 +194,7 @@ If you want to include `house_test.py` without renaming it, generate the runner
 with a broader pattern:
 
 ```powershell
-python run_neighborhood.py houses --pattern "*house*.py"
+uv run python run_neighborhood.py houses --pattern "*house*.py"
 ```
 
 For a strategy-focused walkthrough of what those example houses actually do in a

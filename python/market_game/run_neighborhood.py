@@ -1,63 +1,100 @@
-import os
+import argparse
 import fnmatch
 import json
-import argparse
+import os
 
 
-parser = argparse.ArgumentParser(description="run the neighborhood in standalone mode")
-parser.add_argument("folder", type=str, nargs="?", default="houses", help="folder to search for house files")
-parser.add_argument("--pattern", type=str, default="*_house.py", help="pattern to match house files")
-parser.add_argument("--profile", type=str, default="profile1", help="type of load profile to use: flat, spike, dspike, random, profile1, profile_solar")
+def build_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(description="run the neighborhood in standalone mode")
+    parser.add_argument("folder", type=str, nargs="?", default="houses", help="folder to search for house files")
+    parser.add_argument("--pattern", type=str, default="*_house.py", help="pattern to match house files")
+    parser.add_argument(
+        "--profile",
+        type=str,
+        default="profile1",
+        help="type of load profile to use: flat, spike, dspike, random, profile1, profile_solar",
+    )
+    parser.add_argument(
+        "--launcher",
+        choices=("uv", "plain"),
+        default="uv",
+        help="command prefix for generated federates: uv uses 'uv run', plain uses the active environment",
+    )
+    return parser
 
-args = parser.parse_args()
-    
-houses_dir = args.folder
-pattern = args.pattern
 
-script_path = os.path.abspath(__file__)
-script_directory = os.path.dirname(script_path)
-houses_path = houses_dir if os.path.isabs(houses_dir) else os.path.join(script_directory, houses_dir)
-houses_path = os.path.abspath(houses_path)
-houses_dir_for_exec = os.path.relpath(houses_path, script_directory).replace("\\", "/")
-houses_module_prefix = houses_dir_for_exec.replace("/", ".") if houses_dir_for_exec != "." else ""
+def launcher_prefix(launcher: str) -> str:
+    return "uv run " if launcher == "uv" else ""
 
-# Scan the directory for matching files
-house_files = sorted(f for f in os.listdir(houses_path) if fnmatch.fnmatch(f, pattern))
 
-# Create a JSON object
-runner = {"name": "house_evaluation"}
-runner["federates"]=[]
+def resolve_houses_path(script_directory: str, houses_dir: str) -> str:
+    if os.path.isabs(houses_dir):
+        return os.path.abspath(houses_dir)
+    return os.path.abspath(os.path.join(script_directory, houses_dir))
 
-broker = {
-    "directory": script_directory,
-    "host": "localhost",
-    "name": "broker",
-    "exec": f"helics_broker -f {len(house_files) + 1} -t zmqss --ipv4 -p 23404 --loglevel=warning",
-}
-runner["federates"].append(broker)
 
-for house_file in house_files:
+def module_prefix(script_directory: str, houses_path: str) -> str:
+    houses_dir_for_exec = os.path.relpath(houses_path, script_directory).replace("\\", "/")
+    if houses_dir_for_exec == ".":
+        return ""
+    return houses_dir_for_exec.replace("/", ".")
+
+
+def house_module_name(prefix: str, house_file: str) -> str:
     module_name = house_file[:-3]
-    house_exec_target = f"{houses_module_prefix}.{module_name}" if houses_module_prefix else module_name
-    federate={"directory":script_directory,
-              "host":"localhost",
-              "name":house_file[:-9],
-              "exec":f"python -u -m {house_exec_target} --broker localhost:23404 --no-plot"
-              }
-    runner["federates"].append(federate)
+    return f"{prefix}.{module_name}" if prefix else module_name
 
 
+def build_runner(script_directory: str, house_files: list[str], prefix: str, profile: str, launcher: str) -> dict:
+    command_prefix = launcher_prefix(launcher)
+    runner = {"name": "house_evaluation", "federates": []}
+    runner["federates"].append(
+        {
+            "directory": script_directory,
+            "host": "localhost",
+            "name": "broker",
+            "exec": f"{command_prefix}helics_broker -f {len(house_files) + 1} -t zmqss --ipv4 -p 23404 --loglevel=warning",
+        }
+    )
 
-# Print or use the JSON object
+    for house_file in house_files:
+        runner["federates"].append(
+            {
+                "directory": script_directory,
+                "host": "localhost",
+                "name": house_file[:-9],
+                "exec": (
+                    f"{command_prefix}python -u -m {house_module_name(prefix, house_file)} "
+                    "--broker localhost:23404 --no-plot"
+                ),
+            }
+        )
 
-federate = {
-    "directory": script_directory,
-    "host": "localhost", 
-    "name": "market_maker",
-    "exec": f"python -u market_maker.py --auto --broker localhost:23404 --no-plot --profile {args.profile}"}
+    runner["federates"].append(
+        {
+            "directory": script_directory,
+            "host": "localhost",
+            "name": "market_maker",
+            "exec": (
+                f"{command_prefix}python -u market_maker.py --auto --broker localhost:23404 "
+                f"--no-plot --profile {profile}"
+            ),
+        }
+    )
+    return runner
 
-runner["federates"].append(federate)
 
-with open("houses.json", "w") as f:
-    json.dump(runner, f, indent=3)
-    
+def main() -> None:
+    args = build_parser().parse_args()
+    script_directory = os.path.dirname(os.path.abspath(__file__))
+    houses_path = resolve_houses_path(script_directory, args.folder)
+    prefix = module_prefix(script_directory, houses_path)
+    house_files = sorted(f for f in os.listdir(houses_path) if fnmatch.fnmatch(f, args.pattern))
+    runner = build_runner(script_directory, house_files, prefix, args.profile, args.launcher)
+
+    with open("houses.json", "w") as f:
+        json.dump(runner, f, indent=3)
+
+
+if __name__ == "__main__":
+    main()

@@ -1,0 +1,23 @@
+[project]
+name = "helics-examples-market-game"
+version = "0.1.0"
+description = "HELICS market game examples and downstream simulation helpers"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "gymnasium==1.2.2",
+    "matplotlib==3.10.9",
+    "numpy>=1.26",
+]
+
+[project.optional-dependencies]
+helics = [
+    "helics[cli]==3.6.1",
+]
+training = [
+    "ray[rllib]==2.55.1",
+    "torch==2.12.0",
+]
+
+[tool.uv]
+package = false
