@@ -36,10 +36,11 @@ config for repeatable pure simulations.
 core objects. Existing commands and imports continue to work while new code can
 import directly from `python.market_game_downstream.core`.
 
-The original `House.compute_demand(...)` strategy API is still supported.
-`python/market_game/house_template.py` also exposes `ActionHouse` and
-`DeltaHouse` for students who want to choose battery actions or battery deltas
-instead of raw market load. The older `market_game_downstream.helics` copy is
+The original `House.compute_demand(...)` strategy API is the canonical
+classroom/CTF-facing interface. It returns the market-facing load as a finite
+numeric value; it is not limited to integers. RL-specific action abstractions,
+including coarse discrete battery actions, belong downstream in simulator and
+training adapters. The older `market_game_downstream.helics` copy is
 compatibility-only and should not be extended as a separate runtime surface.
 
 ## Dependency Rule

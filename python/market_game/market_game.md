@@ -65,23 +65,6 @@ if __name__ == "__main__":
     house.plot_results()
 ```
 
-If you prefer choosing only a battery action, use `ActionHouse`:
-
-```python
-from house_template import ActionHouse, BatteryAction
-
-class MyHouse(ActionHouse):
-    def choose_action(self, price, hour, battery_charge, demand, price_history):
-        if price <= 0.12:
-            return BatteryAction.CHARGE
-        if price >= 0.49:
-            return BatteryAction.DISCHARGE
-        return BatteryAction.NEUTRAL
-```
-
-`DeltaHouse` is also available when you want to return a desired battery change
-in kWh instead of the final market load.
-
 ## What Your Strategy Sees
 
 Your `compute_demand(self, price, hour, battery_charge, demand, price_history)`
@@ -94,7 +77,8 @@ method receives:
 - `price_history`: the prices seen so far, including the current hour
 
 Your method must return the amount of power the house will buy from the market
-for the current hour.
+for the current hour. It may return any finite numeric value, including a
+floating-point value.
 
 ## How The Return Value Works
 

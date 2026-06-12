@@ -108,6 +108,46 @@ def action_to_market_load(
     return clamp_market_load(proposed, base_demand, battery_charge, config).market_load
 
 
+def battery_delta_to_market_load(
+    battery_delta: float,
+    base_demand: float,
+    battery_charge: float,
+    config: MarketGameConfig = DEFAULT_CONFIG,
+) -> float:
+    """Convert a requested battery delta into a legal market-facing load.
+
+    Positive delta charges the battery; negative delta discharges it. This is
+    the natural downstream adapter for integer-delta RL baselines, while still
+    preserving the float-valued market-load game interface.
+    """
+    _finite_number(battery_delta, "battery_delta")
+    proposed = base_demand + battery_delta
+    return clamp_market_load(proposed, base_demand, battery_charge, config).market_load
+
+
+def normalized_delta_to_market_load(
+    action: float,
+    base_demand: float,
+    battery_charge: float,
+    config: MarketGameConfig = DEFAULT_CONFIG,
+) -> float:
+    """Map a continuous action in ``[-1, 1]`` to the current legal load range."""
+    _finite_number(action, "action")
+    clipped_action = min(max(float(action), -1.0), 1.0)
+    max_charge_delta = min(config.max_charge, config.battery_capacity - battery_charge)
+    max_discharge_delta = min(config.max_discharge, battery_charge)
+    if clipped_action >= 0.0:
+        battery_delta = clipped_action * max_charge_delta
+    else:
+        battery_delta = clipped_action * max_discharge_delta
+    return battery_delta_to_market_load(
+        battery_delta,
+        base_demand,
+        battery_charge,
+        config,
+    )
+
+
 def _battery_charge(battery: BatteryLike | float) -> float:
     if isinstance(battery, int | float):
         return float(battery)

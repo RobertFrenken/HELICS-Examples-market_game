@@ -35,53 +35,12 @@ clamp it back into the legal range so the game can keep running.
 
 import json
 from abc import ABC, abstractmethod
-from enum import IntEnum
 
 from battery import (
-    BATTERY_CAPACITY,
-    BATTERY_MAX_CHARGE,
-    BATTERY_MAX_DISCHARGE,
     Battery,
     check_valid,
     ensure_valid,
 )
-
-
-class BatteryAction(IntEnum):
-    """Simple battery actions for houses that do not need raw load math."""
-
-    DISCHARGE = -1
-    NEUTRAL = 0
-    CHARGE = 1
-
-
-def action_to_market_load(
-    action: BatteryAction | int,
-    current_demand: float,
-    battery_charge: float,
-) -> float:
-    """Convert a simple battery action into the market-facing house load."""
-    battery_action = BatteryAction(action)
-    if battery_action == BatteryAction.CHARGE:
-        return current_demand + min(
-            BATTERY_MAX_CHARGE,
-            BATTERY_CAPACITY - battery_charge,
-        )
-    if battery_action == BatteryAction.DISCHARGE:
-        return current_demand - min(BATTERY_MAX_DISCHARGE, battery_charge)
-    return current_demand
-
-
-def delta_to_market_load(
-    battery_delta: float,
-    current_demand: float,
-    battery_charge: float,
-) -> float:
-    """Convert a desired battery delta into a legal market-facing load."""
-    max_delta = min(BATTERY_MAX_CHARGE, BATTERY_CAPACITY - battery_charge)
-    min_delta = -min(BATTERY_MAX_DISCHARGE, battery_charge)
-    legal_delta = min(max(battery_delta, min_delta), max_delta)
-    return current_demand + legal_delta
 
 
 class House(ABC):
@@ -231,73 +190,3 @@ class House(ABC):
 
         # Combine all the operations and display
         plt.show()
-
-
-class ActionHouse(House):
-    """Base class for players who want charge/neutral/discharge decisions.
-
-    Subclasses implement ``choose_action(...)`` and return
-    ``BatteryAction.CHARGE``/``1``, ``BatteryAction.NEUTRAL``/``0``, or
-    ``BatteryAction.DISCHARGE``/``-1``. The template converts that choice into
-    the original market-load value expected by the game.
-    """
-
-    @abstractmethod
-    def choose_action(
-        self,
-        price: float,
-        hour: int,
-        battery_charge: float,
-        demand: list[float],
-        price_history: list[float],
-    ) -> BatteryAction | int:
-        """Return this hour's battery action."""
-        pass
-
-    def compute_demand(
-        self,
-        price: float,
-        hour: int,
-        battery_charge: float,
-        demand: list[float],
-        price_history: list[float],
-    ) -> float:
-        action = self.choose_action(price, hour, battery_charge, demand, price_history)
-        return action_to_market_load(action, demand[hour], battery_charge)
-
-
-class DeltaHouse(House):
-    """Base class for players who want to choose battery delta directly.
-
-    Subclasses implement ``choose_delta(...)``. Positive values charge the
-    battery, negative values discharge it, and ``0`` follows base demand.
-    """
-
-    @abstractmethod
-    def choose_delta(
-        self,
-        price: float,
-        hour: int,
-        battery_charge: float,
-        demand: list[float],
-        price_history: list[float],
-    ) -> float:
-        """Return desired battery change in kWh for this hour."""
-        pass
-
-    def compute_demand(
-        self,
-        price: float,
-        hour: int,
-        battery_charge: float,
-        demand: list[float],
-        price_history: list[float],
-    ) -> float:
-        battery_delta = self.choose_delta(
-            price,
-            hour,
-            battery_charge,
-            demand,
-            price_history,
-        )
-        return delta_to_market_load(battery_delta, demand[hour], battery_charge)

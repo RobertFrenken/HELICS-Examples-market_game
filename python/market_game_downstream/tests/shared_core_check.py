@@ -7,7 +7,12 @@ import math
 from pathlib import Path
 import sys
 
-from python.market_game_downstream.core import BatteryAction, action_to_market_load
+from python.market_game_downstream.core import (
+    BatteryAction,
+    action_to_market_load,
+    battery_delta_to_market_load,
+    normalized_delta_to_market_load,
+)
 from python.market_game_downstream.core.config import MarketGameConfig, demand_profile
 from python.market_game_downstream.core.rules import check_valid, compute_price_from_total_load, ensure_valid
 from python.market_game_downstream.core.simulator import (
@@ -56,6 +61,12 @@ def run_shared_core_check() -> None:
 
     assert action_to_market_load(BatteryAction.CHARGE, 2.0, 0.0) == 7.0
     assert action_to_market_load(BatteryAction.DISCHARGE, 2.0, 0.0) == 2.0
+    assert battery_delta_to_market_load(3.0, 2.0, 0.0) == 5.0
+    assert battery_delta_to_market_load(3.25, 2.0, 0.0) == 5.25
+    assert battery_delta_to_market_load(100.0, 2.0, 19.0) == 3.0
+    assert normalized_delta_to_market_load(0.5, 2.0, 0.0) == 4.5
+    assert normalized_delta_to_market_load(-0.5, 12.0, 4.0) == 10.0
+    assert normalized_delta_to_market_load(2.0, 2.0, 19.0) == 3.0
 
     scenario = MarketScenario(policies=[])
     assert scenario.config.episode_hours == 24

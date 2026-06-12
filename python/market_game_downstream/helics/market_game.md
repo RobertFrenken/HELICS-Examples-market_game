@@ -25,7 +25,7 @@ You do not need to understand HELICS to play. Start by editing a house strategy.
 1. Copy an example from `python/market_game/houses/` into a new file ending in
    `_house.py`.
 2. Give the class and player name a unique name.
-3. Implement either `compute_demand(...)` or the simpler `choose_action(...)`.
+3. Implement `compute_demand(...)`.
 4. From `python/market_game`, run:
 
 ```bash
@@ -36,43 +36,11 @@ uv run helics run --path=houses.json
 If you are using an activated pip virtual environment instead of uv, generate
 the runner with `python run_neighborhood.py houses --launcher plain`.
 
-## Easiest Strategy Hook
-
-Use `ActionHouse` when you want to choose only charge, neutral, or discharge.
-
-```python
-import argparse
-
-from house_template import ActionHouse, BatteryAction
-
-
-class MyHouse(ActionHouse):
-    def choose_action(self, price, hour, battery_charge, demand, price_history):
-        if price <= 0.12:
-            return BatteryAction.CHARGE
-        if price >= 0.49:
-            return BatteryAction.DISCHARGE
-        return BatteryAction.NEUTRAL
-
-
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--broker", default="localhost")
-    parser.add_argument("--no-plot", action="store_true")
-    args = parser.parse_args()
-
-    house = MyHouse("MyHouse", args.broker)
-    house.run()
-    if not args.no_plot:
-        house.plot_results()
-```
-
-`ActionHouse` converts the action into a legal market load for you.
-
-## Original Strategy Hook
+## Strategy Hook
 
 Existing examples use `House.compute_demand(...)`, which returns the exact
-market-facing load for the current hour.
+market-facing load for the current hour. The value may be any finite number,
+including a floating-point value.
 
 ```python
 from house_template import House
@@ -103,7 +71,7 @@ Let `base = demand[hour]`.
 
 ## What Your Strategy Sees
 
-`compute_demand(...)`, `choose_action(...)`, and `choose_delta(...)` receive:
+`compute_demand(...)` receives:
 
 | Input | Meaning |
 |---|---|

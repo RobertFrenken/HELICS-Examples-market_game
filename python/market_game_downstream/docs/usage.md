@@ -164,7 +164,7 @@ obs, info = env.reset()
 obs, reward, terminated, truncated, info = env.step(action)
 ```
 
-Actions use `BatteryAction`:
+The current smoke environment uses a coarse `BatteryAction` action space:
 
 ```text
 -1  discharge
@@ -180,6 +180,13 @@ libraries. It maps Gym's `Discrete(3)` action indices as:
 1  neutral
 2  charge
 ```
+
+This is a starter/debug baseline, not the game interface and not the strongest
+RL action model. The game and exported submissions accept any finite numeric
+market load from `compute_demand(...)`. For more granular downstream RL
+experiments, use `battery_delta_to_market_load(...)` for integer or fractional
+battery-delta actions, or `normalized_delta_to_market_load(...)` for continuous
+actions in `[-1, 1]` mapped onto the current legal battery range.
 
 Hidden aggregate market values are available only in `info["diagnostics"]`, not
 in the observation vector.
