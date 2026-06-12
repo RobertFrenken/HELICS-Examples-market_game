@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from enum import IntEnum
 import math
 from typing import Protocol
 
@@ -13,14 +12,6 @@ from .config import DEFAULT_CONFIG, MarketGameConfig
 class BatteryLike(Protocol):
     def current_charge(self) -> float:
         """Return current stored energy."""
-
-
-class BatteryAction(IntEnum):
-    """Discrete battery posture for student examples and RL control."""
-
-    DISCHARGE = -1
-    NEUTRAL = 0
-    CHARGE = 1
 
 
 @dataclass(frozen=True)
@@ -89,23 +80,6 @@ def clamp_market_load(
 
     clamped = min(max(market_load, lower_bound), upper_bound)
     return ClampResult(clamped, warning)
-
-
-def action_to_market_load(
-    action: BatteryAction | int,
-    base_demand: float,
-    battery_charge: float,
-    config: MarketGameConfig = DEFAULT_CONFIG,
-) -> float:
-    """Convert a discrete battery action into a legal market-facing load."""
-    action = BatteryAction(action)
-    if action == BatteryAction.DISCHARGE:
-        proposed = base_demand - config.max_discharge
-    elif action == BatteryAction.NEUTRAL:
-        proposed = base_demand
-    else:
-        proposed = base_demand + config.max_charge
-    return clamp_market_load(proposed, base_demand, battery_charge, config).market_load
 
 
 def battery_delta_to_market_load(

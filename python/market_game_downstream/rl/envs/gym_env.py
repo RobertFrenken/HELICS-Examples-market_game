@@ -11,16 +11,15 @@ from gymnasium import spaces
 
 from ..core.config import DEFAULT_CONFIG, MarketGameConfig
 from .env import MarketGameEnv, default_opponent_policies
+from ..action_spaces import (
+    DEFAULT_ACTION_SPACE,
+    ActionMapper,
+    ContinuousNormalizedDeltaActionSpace,
+    DiscreteBatteryPostureActionSpace,
+    IntegerBatteryDeltaActionSpace,
+)
 from ..agents.observations import ObservationMode, observation_schema
-from ..core.rules import BatteryAction
 from ..core.simulator import HousePolicy
-
-
-GYM_ACTION_TO_BATTERY_ACTION = {
-    0: BatteryAction.DISCHARGE,
-    1: BatteryAction.NEUTRAL,
-    2: BatteryAction.CHARGE,
-}
 
 
 def observation_bounds(mode: ObservationMode, config: MarketGameConfig) -> tuple[np.ndarray, np.ndarray]:
@@ -69,17 +68,20 @@ class GymMarketGameEnv(gym.Env):
         opponent_policies: Sequence[HousePolicy] | None = None,
         config: MarketGameConfig = DEFAULT_CONFIG,
         observation_mode: ObservationMode | str = ObservationMode.PRICE_HISTORY,
+        action_space: ActionMapper = DEFAULT_ACTION_SPACE,
         final_battery_target: float | None = None,
         final_battery_penalty: float = 0.0,
     ):
         super().__init__()
         self.observation_mode = ObservationMode(observation_mode)
+        self.action_mapper = action_space
         self.env = MarketGameEnv(
             opponent_policies=list(opponent_policies)
             if opponent_policies is not None
             else default_opponent_policies(),
             config=config,
             observation_mode=self.observation_mode,
+            action_space=action_space,
             final_battery_target=final_battery_target,
             final_battery_penalty=final_battery_penalty,
         )
@@ -87,7 +89,7 @@ class GymMarketGameEnv(gym.Env):
         obs_dim = len(observation_schema(self.observation_mode))
         low, high = observation_bounds(self.observation_mode, config)
         self.observation_space = spaces.Box(low=low, high=high, shape=(obs_dim,), dtype=np.float32)
-        self.action_space = spaces.Discrete(3)
+        self.action_space = gym_action_space(action_space)
 
     def reset(
         self,
@@ -102,22 +104,38 @@ class GymMarketGameEnv(gym.Env):
 
     def step(
         self,
-        action: int,
+        action: object,
     ) -> tuple[np.ndarray, float, bool, bool, dict[str, Any]]:
-        battery_action = _gym_action_to_battery_action(action)
-        obs, reward, terminated, truncated, info = self.env.step(battery_action)
+        learner_action = _normalize_gym_action(action, self.action_mapper)
+        obs, reward, terminated, truncated, info = self.env.step(learner_action)
         return self._as_observation(obs), float(reward), terminated, truncated, info
 
     def _as_observation(self, obs: list[float]) -> np.ndarray:
         return np.asarray(obs, dtype=np.float32)
 
 
-def _gym_action_to_battery_action(action: int) -> BatteryAction:
+def gym_action_space(action_mapper: ActionMapper) -> spaces.Space:
+    if isinstance(action_mapper, DiscreteBatteryPostureActionSpace):
+        return spaces.Discrete(3)
+    if isinstance(action_mapper, IntegerBatteryDeltaActionSpace):
+        return spaces.Discrete(
+            action_mapper.max_delta - action_mapper.min_delta + 1,
+            start=action_mapper.min_delta,
+        )
+    if isinstance(action_mapper, ContinuousNormalizedDeltaActionSpace):
+        return spaces.Box(low=-1.0, high=1.0, shape=(), dtype=np.float32)
+    raise TypeError(f"unsupported Gym action mapper {type(action_mapper).__name__}")
+
+
+def _normalize_gym_action(action: object, action_mapper: ActionMapper) -> object:
+    if isinstance(action_mapper, ContinuousNormalizedDeltaActionSpace):
+        return float(np.asarray(action, dtype=np.float32).item())
     try:
-        action_index = int(action)
+        action_value = int(action)
     except (TypeError, ValueError) as exc:
-        raise ValueError(f"invalid Gym action {action!r}; expected 0, 1, or 2") from exc
-    try:
-        return GYM_ACTION_TO_BATTERY_ACTION[action_index]
-    except KeyError as exc:
-        raise ValueError(f"invalid Gym action {action!r}; expected 0, 1, or 2") from exc
+        raise ValueError(f"invalid Gym action {action!r}") from exc
+    if isinstance(action_mapper, DiscreteBatteryPostureActionSpace):
+        if action_value not in (0, 1, 2):
+            raise ValueError(f"invalid Gym action {action!r}; expected 0, 1, or 2")
+        return action_value - 1
+    return action_value

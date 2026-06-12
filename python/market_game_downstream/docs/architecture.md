@@ -43,6 +43,11 @@ including coarse discrete battery actions, belong downstream in simulator and
 training adapters. The older `market_game_downstream.helics` copy is
 compatibility-only and should not be extended as a separate runtime surface.
 
+`market_game_downstream.rl.action_spaces` owns learner-action mappings. The
+simulator and exported submissions still see only market load values. Current
+adapters cover the coarse three-posture smoke baseline, integer battery deltas,
+and continuous normalized battery deltas.
+
 ## Dependency Rule
 
 `market_game_downstream.core` must stay standard-library only. Optional dependencies belong

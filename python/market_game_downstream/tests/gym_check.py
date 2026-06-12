@@ -12,6 +12,10 @@ from python.market_game_downstream.rl.agents.policies import (
     FlattenDemandPolicy,
     PriceAwarePolicy,
 )
+from python.market_game_downstream.rl.action_spaces import (
+    ContinuousNormalizedDeltaActionSpace,
+    IntegerBatteryDeltaActionSpace,
+)
 from python.market_game_downstream.rl.envs.gym_env import GymMarketGameEnv
 
 
@@ -37,6 +41,19 @@ def run_gym_smoke_check() -> None:
             assert "invalid Gym action" in str(exc)
         else:
             raise AssertionError("invalid Gym action was not rejected")
+
+    integer_env = GymMarketGameEnv(action_space=IntegerBatteryDeltaActionSpace())
+    assert integer_env.action_space.start == -10
+    assert integer_env.action_space.n == 16
+    obs, info = integer_env.reset(seed=1)
+    obs, reward, terminated, truncated, info = integer_env.step(4)
+    assert info["diagnostics"].own_market_load == 6.0
+
+    continuous_env = GymMarketGameEnv(action_space=ContinuousNormalizedDeltaActionSpace())
+    assert continuous_env.action_space.shape == ()
+    obs, info = continuous_env.reset(seed=1)
+    obs, reward, terminated, truncated, info = continuous_env.step(0.5)
+    assert info["diagnostics"].own_market_load == 4.5
 
 
 if __name__ == "__main__":

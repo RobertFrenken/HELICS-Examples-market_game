@@ -8,9 +8,7 @@ from .config import (
     demand_profile,
 )
 from .rules import (
-    BatteryAction,
     ClampResult,
-    action_to_market_load,
     battery_delta_to_market_load,
     check_valid,
     clamp_market_load,
@@ -36,7 +34,6 @@ from .simulator import (
 )
 
 __all__ = [
-    "BatteryAction",
     "BatteryState",
     "ClampResult",
     "DEFAULT_CONFIG",
@@ -52,7 +49,6 @@ __all__ = [
     "PROFILE_TYPES",
     "SimHouse",
     "SimulationResult",
-    "action_to_market_load",
     "battery_delta_to_market_load",
     "check_valid",
     "clamp_market_load",

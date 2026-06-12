@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 
+from .action_spaces_check import run_action_spaces_check
 from .env_check import run_env_smoke_check
 from .export_check import run_export_smoke_check
 from .gym_check import run_gym_smoke_check
@@ -15,6 +16,8 @@ from .shared_core_check import run_import_safety_check, run_shared_core_check
 def run_core_checks() -> None:
     run_shared_core_check()
     print("shared core: ok")
+    run_action_spaces_check()
+    print("action spaces: ok")
     run_import_safety_check()
     print("import safety: ok")
     assert_stock_parity()

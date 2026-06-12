@@ -9,7 +9,7 @@ from python.market_game_downstream.rl.agents.policies import (
     FlattenDemandPolicy,
     PriceAwarePolicy,
 )
-from python.market_game_downstream.rl.core.rules import BatteryAction
+from python.market_game_downstream.rl.action_spaces import BatteryPosture
 from python.market_game_downstream.rl.envs.env import MarketGameEnv
 
 
@@ -34,7 +34,7 @@ def run_env_smoke_check() -> None:
         steps = 0
         total_reward = 0.0
         while not terminated:
-            obs, reward, terminated, truncated, info = env.step(BatteryAction.NEUTRAL)
+            obs, reward, terminated, truncated, info = env.step(BatteryPosture.NEUTRAL)
             assert not truncated
             assert len(obs) == expected_dim, (mode, len(obs))
             total_reward += reward

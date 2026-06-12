@@ -14,9 +14,9 @@ from ..agents.observations import (
     update_inference_belief,
 )
 from ..agents.policies import FollowDemandPolicy
-from ..core.rules import (
-    BatteryAction,
-    action_to_market_load,
+from ..action_spaces import (
+    DEFAULT_ACTION_SPACE,
+    ActionMapper,
 )
 from ..core.simulator import BatteryState, HouseHourInput, HousePolicy, HourRecord, step_market_hour
 
@@ -43,7 +43,7 @@ class EnvStepDiagnostics:
 class MarketGameEnv:
     """Single-agent RL environment embedded in a multi-house market.
 
-    The learning agent controls one house through a discrete battery action.
+    The learning agent controls one house through an explicit action mapper.
     Opponents are ordinary ``HousePolicy`` instances. Observations are built
     only from legal local inputs, own action history, and delayed price history.
     Hidden aggregate values are exposed only through ``info`` diagnostics.
@@ -54,6 +54,7 @@ class MarketGameEnv:
         opponent_policies: list[HousePolicy] | None = None,
         config: MarketGameConfig = DEFAULT_CONFIG,
         observation_mode: ObservationMode | str = ObservationMode.PRICE_HISTORY,
+        action_space: ActionMapper = DEFAULT_ACTION_SPACE,
         final_battery_target: float | None = None,
         final_battery_penalty: float = 0.0,
     ):
@@ -64,6 +65,7 @@ class MarketGameEnv:
             else default_opponent_policies()
         )
         self.observation_mode = ObservationMode(observation_mode)
+        self.action_space = action_space
         self.final_battery_target = final_battery_target
         self.final_battery_penalty = final_battery_penalty
 
@@ -108,12 +110,12 @@ class MarketGameEnv:
 
         return self._make_observation(), self._make_info()
 
-    def step(self, action: BatteryAction | int) -> tuple[list[float], float, bool, bool, dict[str, object]]:
+    def step(self, action: object) -> tuple[list[float], float, bool, bool, dict[str, object]]:
         if self.hour >= self.config.episode_hours:
             raise RuntimeError("episode is already terminated; call reset()")
 
         base_demand = self.demand[self.hour]
-        own_proposed_load = action_to_market_load(
+        own_proposed_load = self.action_space.market_load(
             action,
             base_demand,
             self.own_battery.energy,
@@ -232,6 +234,7 @@ class MarketGameEnv:
             "price": self.current_price,
             "battery": self.own_battery.energy,
             "total_cost": sum(self.own_cost_history),
+            "action_space": type(self.action_space).__name__,
         }
         if diagnostics is not None:
             info["diagnostics"] = diagnostics

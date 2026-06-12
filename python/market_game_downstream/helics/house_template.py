@@ -45,12 +45,8 @@ from abc import ABC, abstractmethod
 import matplotlib.pyplot as plt
 
 from battery import Battery
-from python.market_game_downstream.core.rules import (
-    BatteryAction,
-    action_to_market_load,
-    check_valid,
-    ensure_valid,
-)
+from python.market_game_downstream.core.rules import check_valid, ensure_valid
+from python.market_game_downstream.rl.core.rules import BatteryAction, action_to_market_load
 
 
 class House(ABC):
