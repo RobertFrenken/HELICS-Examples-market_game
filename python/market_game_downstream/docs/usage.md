@@ -94,9 +94,13 @@ The compact output is:
 house,total_load,total_cost,final_battery,clamps
 ```
 
+The compact command validates the file first with the export validator,
+including signature, import-safety, finite numeric output, and a 24-hour smoke
+run with no clamped loads.
+
 Use `evaluate_scenarios --submission` when you want to score the exact
-standalone `.py` file intended for submission. This is the current pure-Python
-practice workflow; it does not require HELICS and it runs the same
+standalone `.py` file against the richer scenario CSV diagnostics. This
+pure-Python route does not require HELICS and it runs the same
 `compute_demand(...)` interface used by the classroom template. The file must
 define:
 

@@ -8,6 +8,7 @@ from pathlib import Path
 import tempfile
 
 from python.market_game_downstream.core.simulator import run_scenario
+from python.market_game_downstream.rl.export import SubmissionValidationError
 from python.market_game_downstream.rl.aggregate_scenarios import aggregate_rows
 from python.market_game_downstream.rl.evaluate_scenarios import (
     _parse_seed_list,
@@ -37,6 +38,26 @@ def assert_config_error(config: object, expected: str) -> None:
             assert expected in str(exc)
         else:
             raise AssertionError(f"scenario config did not fail with {expected!r}")
+
+
+def assert_practice_submission_error(source: str, expected: str) -> None:
+    with tempfile.TemporaryDirectory() as temp_dir:
+        path = Path(temp_dir) / "bad_submission.py"
+        path.write_text(source, encoding="utf-8")
+        try:
+            practice_rows(
+                argparse.Namespace(
+                    submission=path,
+                    name="BadSubmission",
+                    scenario="week_1_baselines",
+                    seed=3,
+                    config=None,
+                )
+            )
+        except SubmissionValidationError as exc:
+            assert expected in str(exc)
+        else:
+            raise AssertionError(f"practice submission did not fail with {expected!r}")
 
 
 def run_scenario_smoke_check() -> None:
@@ -310,6 +331,16 @@ def run_scenario_smoke_check() -> None:
             "clamps": only_submission_rows[0]["clamps"],
         }
     ]
+    assert_practice_submission_error(
+        "def compute_demand(price, hour, battery_charge, demand, price_history):\n"
+        "    return eval('1')\n",
+        "disallowed runtime call",
+    )
+    assert_practice_submission_error(
+        "def compute_demand(price, hour, battery_charge, demand, price_history):\n"
+        "    return -999.0\n",
+        "failed 24-hour validation",
+    )
 
     submitted_config = {
         "scenarios": [

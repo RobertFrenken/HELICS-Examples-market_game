@@ -6,6 +6,7 @@ import argparse
 import csv
 import sys
 
+from .export.validators import SubmissionValidationError, validate_submission_file
 from .evaluate_scenarios import rows_for_args
 
 
@@ -19,6 +20,12 @@ PRACTICE_COLUMNS = [
 
 
 def practice_rows(args: argparse.Namespace) -> list[dict[str, str]]:
+    report = validate_submission_file(args.submission)
+    if not report.ok:
+        raise SubmissionValidationError(
+            "submission failed 24-hour validation "
+            f"(hours={report.hours}, clamps={report.clamps})"
+        )
     scenario_args = argparse.Namespace(
         stock=False,
         scenario=args.scenario,
@@ -78,7 +85,10 @@ def main() -> None:
         help="JSON scenario config path; defaults to rl/scenario_configs/weekly.json",
     )
     args = parser.parse_args()
-    write_practice_rows(practice_rows(args))
+    try:
+        write_practice_rows(practice_rows(args))
+    except SubmissionValidationError as exc:
+        raise SystemExit(str(exc)) from exc
 
 
 if __name__ == "__main__":
