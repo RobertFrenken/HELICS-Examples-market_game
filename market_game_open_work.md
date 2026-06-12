@@ -266,8 +266,9 @@ Refactor phases:
 
 Near-term implementation checklist:
 
-1. Add a `submitted_policy` evaluator command that accepts `--submission PATH`
-   and `--scenario...`, then reuses the existing scenario/evaluation plumbing.
+1. Done: added `--submission PATH` support to
+   `python.market_game_downstream.rl.evaluate_scenarios`, reusing the existing
+   scenario/evaluation plumbing directly.
 2. Add a held-out validation scenario config not used for teacher collection.
 3. Add an invalid-demand stress scenario to routine export validation.
 4. Add generated-submission regression fixtures for threshold, tree, and matrix
@@ -277,6 +278,44 @@ Near-term implementation checklist:
    - RL checkpoint -> distilled standalone `compute_demand(...)`.
 6. When upstream simulator parity settles, port the evaluator/baseline pieces
    into `python/market_game/simulation` in small PR-sized commits.
+
+Course correction:
+
+The `--submission` evaluator support is useful, but it is not the main
+structural refactor. Treat it as workflow plumbing, not the simplifying move.
+The more important refactor is to reduce the number of competing house/runtime
+forms.
+
+Current risk:
+
+- `python/market_game` has the official classroom and CTF-facing house form.
+- `python/market_game_downstream/helics` has a second HELICS-facing house,
+  battery, market-maker, and documentation surface.
+- RL/export code targets `compute_demand(...)`, but the duplicated HELICS layer
+  makes it unclear which house form is canonical.
+
+Corrected direction:
+
+1. Make `python/market_game` the canonical house/runtime shape for submission
+   and local HELICS play.
+2. Keep `python/market_game_downstream` as the simulator, training,
+   evaluation, validation, and export workbench.
+3. Shrink or retire `python/market_game_downstream/helics` instead of extending
+   it. If compatibility is needed, keep thin shims or docs that point back to
+   `python/market_game`.
+4. Move any genuinely useful downstream HELICS improvements, such as
+   dependency-light imports or action/delta authoring helpers, toward the
+   canonical `python/market_game` path only if they do not make submission
+   rules less clear.
+5. Prefer refactors that remove duplicated concepts or code paths over new
+   commands that wrap existing behavior.
+
+Next real refactor candidate:
+
+Audit `python/market_game_downstream/helics` for active use, then either delete
+or convert it into compatibility documentation/shims. The intended result is
+one HELICS house template, one market-maker implementation, and one obvious
+submission target.
 
 ## Documentation Cleanup Still Open
 

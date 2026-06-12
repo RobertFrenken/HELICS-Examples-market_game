@@ -56,6 +56,16 @@ Evaluate one named scenario from the default JSON scenario registry:
 python3 -m python.market_game_downstream.rl.evaluate_scenarios --scenario week_3_mixed_population --seed 7
 ```
 
+Evaluate a standalone submission file against one named scenario:
+
+```bash
+python3 -m python.market_game_downstream.rl.evaluate_scenarios \
+  --submission python/market_game_downstream/rl/export/example_threshold_submission.py \
+  --scenario week_1_baselines \
+  --seed 3 \
+  --only-submission
+```
+
 Validate the example exported submission:
 
 ```bash

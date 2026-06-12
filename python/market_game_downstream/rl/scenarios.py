@@ -86,6 +86,19 @@ class CompetitionScenario:
             replace(self.config, demand_profile=self.demand()),
         )
 
+    def with_policy_factory(
+        self,
+        policy_factory: PolicyFactory,
+        *,
+        first: bool = True,
+    ) -> "CompetitionScenario":
+        """Return a scenario copy with one additional executable policy."""
+        if first:
+            policy_factories = [policy_factory, *self.policy_factories]
+        else:
+            policy_factories = [*self.policy_factories, policy_factory]
+        return replace(self, policy_factories=policy_factories)
+
 
 def stock_example_scenario() -> CompetitionScenario:
     return CompetitionScenario(
@@ -194,6 +207,29 @@ def scenario_by_name(
     except KeyError as exc:
         choices = ", ".join(scenarios_by_name)
         raise ValueError(f"unknown scenario {name!r}; choices: {choices}") from exc
+
+
+def submitted_function_policy_factory(
+    path: str | Path,
+    name: str = "SubmittedHouse",
+) -> PolicyFactory:
+    """Return a policy factory for a standalone ``compute_demand`` file."""
+    if not isinstance(name, str) or not name:
+        raise ValueError("submitted function policy name must be a non-empty string")
+    submission_path = Path(path)
+
+    def factory(
+        path: Path = submission_path,
+        name: str = name,
+    ) -> HousePolicy:
+        from python.market_game_downstream.rl.export.export_policy import (
+            FunctionSubmissionPolicy,
+        )
+        from python.market_game_downstream.rl.export.validators import load_compute_demand
+
+        return FunctionSubmissionPolicy(load_compute_demand(path), name=name)
+
+    return factory
 
 
 def _validate_unique_names(scenarios: list[CompetitionScenario]) -> None:
@@ -462,18 +498,7 @@ def _submitted_function_factory(
     if resolved_kwargs:
         extra = ", ".join(sorted(resolved_kwargs))
         raise ValueError(f"unsupported submitted function policy kwargs: {extra}")
-    if not isinstance(name, str) or not name:
-        raise ValueError("submitted function policy name must be a non-empty string")
-
-    def factory(path: str = resolved_path, name: str = name) -> HousePolicy:
-        from python.market_game_downstream.rl.export.export_policy import (
-            FunctionSubmissionPolicy,
-        )
-        from python.market_game_downstream.rl.export.validators import load_compute_demand
-
-        return FunctionSubmissionPolicy(load_compute_demand(path), name=name)
-
-    return factory
+    return submitted_function_policy_factory(resolved_path, name=name)
 
 
 def _policy_factory(

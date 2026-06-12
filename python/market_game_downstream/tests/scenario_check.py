@@ -2,19 +2,24 @@
 
 from __future__ import annotations
 
+import argparse
 import json
 from pathlib import Path
 import tempfile
 
 from python.market_game_downstream.core.simulator import run_scenario
 from python.market_game_downstream.rl.aggregate_scenarios import aggregate_rows
+from python.market_game_downstream.rl.evaluate_scenarios import (
+    _parse_seed_list,
+    rows_for_args,
+)
 from python.market_game_downstream.rl.scenarios import (
     evaluate_curriculum,
     evaluate_scenario,
     load_scenarios,
     stock_example_scenario,
+    submitted_function_policy_factory,
 )
-from python.market_game_downstream.rl.evaluate_scenarios import _parse_seed_list
 from python.market_game_downstream.rl.scenario_builder import (
     ScenarioConfigBuilder,
     example_builder,
@@ -263,6 +268,29 @@ def run_scenario_smoke_check() -> None:
         / "export"
         / "example_threshold_submission.py"
     )
+    submitted_scenario = stock_example_scenario().with_policy_factory(
+        submitted_function_policy_factory(submission, name="SmokeSubmittedHouse")
+    )
+    submitted_rows = evaluate_scenario(submitted_scenario)
+    assert submitted_rows[0]["agent"] == "SmokeSubmittedHouse"
+    assert len(submitted_rows) == 4
+
+    only_submission_rows = rows_for_args(
+        argparse.Namespace(
+            submission=submission,
+            submission_name="OnlySubmittedHouse",
+            only_submission=True,
+            stock=False,
+            scenario="week_1_baselines",
+            seed=3,
+            seeds=None,
+            config=None,
+        )
+    )
+    assert len(only_submission_rows) == 1
+    assert only_submission_rows[0]["agent"] == "OnlySubmittedHouse"
+    assert only_submission_rows[0]["scenario"] == "week_1_baselines"
+
     submitted_config = {
         "scenarios": [
             {

@@ -78,6 +78,29 @@ python3 -m python.market_game_downstream.rl.aggregate_scenarios /tmp/scenarios.c
 The aggregate CSV reports mean, sample standard deviation, min, max, and a
 per-scenario rank by `total_cost_mean` for each policy.
 
+## Submission Evaluation
+
+Use `evaluate_scenarios --submission` when you want to score the exact
+standalone `.py` file intended for submission. The file must define:
+
+```python
+def compute_demand(price, hour, battery_charge, demand, price_history):
+    ...
+```
+
+Evaluate one submitted file against one named scenario:
+
+```bash
+python3 -m python.market_game_downstream.rl.evaluate_scenarios \
+  --submission python/market_game_downstream/rl/export/example_threshold_submission.py \
+  --scenario week_1_baselines \
+  --seed 3 \
+  --only-submission
+```
+
+Omit `--only-submission` to include opponent rows in the CSV. Use `--seeds` or
+`--config` the same way as `evaluate_scenarios`.
+
 Pure simulations may also be built directly with `python.market_game_downstream.core`:
 
 ```python
