@@ -19,6 +19,9 @@ flowchart TD
 | `market_game_downstream.rl` | Policies, legal observations, Gymnasium adapter, RLlib training, and evaluation commands. |
 | `market_game_downstream.tests` | Smoke, parity, scenario, export, and optional RLlib tests. |
 
+See `rule_inventory.md` for the current map of duplicated rule behavior,
+canonical downstream sources, and downstream-only wrappers.
+
 ## Compatibility
 
 `market_game_downstream.core.step_market_hour(...)` is the canonical hourly transition.

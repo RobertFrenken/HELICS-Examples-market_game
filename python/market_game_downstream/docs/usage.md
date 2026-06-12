@@ -81,11 +81,22 @@ per-scenario rank by `total_cost_mean` for each policy.
 ## Submission Evaluation
 
 Use `evaluate_scenarios --submission` when you want to score the exact
-standalone `.py` file intended for submission. The file must define:
+standalone `.py` file intended for submission. This is the current pure-Python
+practice workflow; it does not require HELICS and it runs the same
+`compute_demand(...)` interface used by the classroom template. The file must
+define:
 
 ```python
 def compute_demand(price, hour, battery_charge, demand, price_history):
     ...
+```
+
+Evaluate one submitted file across the default weekly scenarios:
+
+```bash
+python3 -m python.market_game_downstream.rl.evaluate_scenarios \
+  --submission python/market_game_downstream/rl/export/example_threshold_submission.py \
+  --only-submission
 ```
 
 Evaluate one submitted file against one named scenario:
@@ -99,7 +110,10 @@ python3 -m python.market_game_downstream.rl.evaluate_scenarios \
 ```
 
 Omit `--only-submission` to include opponent rows in the CSV. Use `--seeds` or
-`--config` the same way as `evaluate_scenarios`.
+`--config` the same way as `evaluate_scenarios`. The submission-only rows still
+use the scenario CSV format, including `total_load`, `total_cost`,
+`final_battery`, `boundary_warnings`, `clamps`, `invalid_load_adjustment`, and
+`penalty_cost`.
 
 Pure simulations may also be built directly with `python.market_game_downstream.core`:
 
