@@ -80,6 +80,20 @@ per-scenario rank by `total_cost_mean` for each policy.
 
 ## Submission Evaluation
 
+Use `evaluate_submission` when you want a compact practice score for the exact
+standalone `.py` file intended for submission:
+
+```bash
+python3 -m python.market_game_downstream.rl.evaluate_submission \
+  python/market_game_downstream/rl/export/example_threshold_submission.py
+```
+
+The compact output is:
+
+```text
+house,total_load,total_cost,final_battery,clamps
+```
+
 Use `evaluate_scenarios --submission` when you want to score the exact
 standalone `.py` file intended for submission. This is the current pure-Python
 practice workflow; it does not require HELICS and it runs the same

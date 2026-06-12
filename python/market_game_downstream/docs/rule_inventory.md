@@ -34,7 +34,21 @@ experimentation back to the competition ABI. Exported files must define
 
 ## Submission Workflow Check
 
-The existing downstream route can already score a standalone submission file:
+The promoted compact route scores one standalone submission file:
+
+```bash
+python3 -m python.market_game_downstream.rl.evaluate_submission \
+  python/market_game_downstream/rl/export/example_threshold_submission.py
+```
+
+It reuses the scenario evaluator and emits:
+
+```text
+house,total_load,total_cost,final_battery,clamps
+```
+
+The existing downstream scenario route can also score a standalone submission
+file:
 
 ```bash
 python3 -m python.market_game_downstream.rl.evaluate_scenarios \
@@ -42,9 +56,8 @@ python3 -m python.market_game_downstream.rl.evaluate_scenarios \
   --only-submission
 ```
 
-This command should be documented as the current workflow while deciding whether
-to add a thin alias with less RL/scenario vocabulary. Do not build a second
-evaluator unless this route proves too heavy for users.
+Do not build a second simulation path unless the existing evaluator proves too
+heavy for users.
 
 Current output is scenario-oriented CSV with these columns:
 
@@ -52,9 +65,5 @@ Current output is scenario-oriented CSV with these columns:
 scenario,agent,profile_type,seed,total_load,total_cost,final_battery,boundary_warnings,clamps,invalid_load_adjustment,penalty_cost,price_volatility
 ```
 
-A later ergonomics commit may add a narrower output mode or alias for the common
-practice case:
-
-```text
-house,total_load,total_cost,final_battery,clamps
-```
+A later ergonomics commit may add optional baseline comparison to the compact
+practice route.

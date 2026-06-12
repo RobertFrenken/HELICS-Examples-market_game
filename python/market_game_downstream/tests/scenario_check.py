@@ -13,6 +13,7 @@ from python.market_game_downstream.rl.evaluate_scenarios import (
     _parse_seed_list,
     rows_for_args,
 )
+from python.market_game_downstream.rl.evaluate_submission import practice_rows
 from python.market_game_downstream.rl.scenarios import (
     evaluate_curriculum,
     evaluate_scenario,
@@ -290,6 +291,25 @@ def run_scenario_smoke_check() -> None:
     assert len(only_submission_rows) == 1
     assert only_submission_rows[0]["agent"] == "OnlySubmittedHouse"
     assert only_submission_rows[0]["scenario"] == "week_1_baselines"
+
+    compact_rows = practice_rows(
+        argparse.Namespace(
+            submission=submission,
+            name="PracticeSubmittedHouse",
+            scenario="week_1_baselines",
+            seed=3,
+            config=None,
+        )
+    )
+    assert compact_rows == [
+        {
+            "house": "PracticeSubmittedHouse",
+            "total_load": only_submission_rows[0]["total_load"],
+            "total_cost": only_submission_rows[0]["total_cost"],
+            "final_battery": only_submission_rows[0]["final_battery"],
+            "clamps": only_submission_rows[0]["clamps"],
+        }
+    ]
 
     submitted_config = {
         "scenarios": [
