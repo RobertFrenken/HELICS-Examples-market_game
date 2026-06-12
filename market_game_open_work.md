@@ -190,6 +190,94 @@ Reference docs:
 - `python/market_game_downstream/rl/export/README.md`
 - `python/market_game_downstream/rl/docs/scenario_training_and_distillation.md`
 
+## Submission-First Refactor Plan
+
+Goal: reshape the downstream competition workbench closer to the official
+`python/market_game` form while retaining RL as a local training and export
+pipeline. The submitted artifact should be a single `.py` file whose runtime
+surface is:
+
+```python
+def compute_demand(price, hour, battery_charge, demand, price_history):
+    ...
+```
+
+This is the boundary to optimize around. HELICS classes, downstream helper
+imports, Gymnasium, Ray, Torch, checkpoints, and scenario files can exist in the
+training workspace, but they should not be required by the final CTF submission.
+
+Target architecture:
+
+| Layer | Target role | Dependency rule |
+|---|---|---|
+| `python/market_game` | Official classroom/CTF runtime shape, examples, docs, HELICS runner. | HELICS/matplotlib are runtime conveniences, not submission requirements. |
+| `python/market_game/simulation` | Upstream-shaped pure simulator and baseline evaluator, if accepted by upstream. | Standard library only. |
+| `python/market_game_downstream/core` | Local canonical rule engine until pieces are ported upstream. | Standard library only. |
+| `python/market_game_downstream/rl` | Training, scenario generation, evaluation, distillation, and diagnostics. | Optional RL dependencies stay here. |
+| `python/market_game_downstream/rl/export` | Hard boundary that renders and validates standalone submissions. | Output files must be self-contained. |
+
+Refactor phases:
+
+1. Preserve the official house form as the canonical submission interface.
+   - Treat `compute_demand(...)` as the only stable competition ABI.
+   - Keep `ActionHouse` and `DeltaHouse` as teaching/workbench conveniences,
+     but do not rely on them in exported submissions.
+   - Make examples and docs say clearly that helper classes are local
+     authoring tools, while submission is a plain function or plain subclass
+     method body.
+
+2. Move shared pure-game behavior toward upstream-shaped modules.
+   - Port small dependency-free pieces from `market_game_downstream.core` into
+     `python/market_game/simulation` when ready for upstream review.
+   - Keep the port narrow: price calculation, battery clamping, scenario
+     stepping, baseline policies, evaluator CLI, and focused tests.
+   - Avoid direct upstreaming of `market_game_downstream`; use it as the source
+     workbench only.
+
+3. Make export the first-class RL deliverable.
+   - The RL agent can use rich observations and dependencies during training.
+   - Distillation should produce threshold, tree, or matrix students as literal
+     Python source with `compute_demand(...)`.
+   - Add a local command that validates an exported file against the same
+     signature, import, finite-output, clamp, and 24-hour simulation checks used
+     by `validate_submission_file(...)`.
+
+4. Add a submission harness that can run the exact submitted file locally.
+   - Load `compute_demand(...)` from a path.
+   - Wrap it with `FunctionSubmissionPolicy`.
+   - Evaluate it against fixed, large-population, held-out, and invalid-demand
+     stress scenarios.
+   - Emit CSV rows with total cost, load, final battery, clamps, penalty cost,
+     and opponent set.
+
+5. Tighten the validator only after VM rules are known.
+   - Current allowed-import posture is deliberately narrow.
+   - Keep source-size, import, top-level execution, runtime-call, signature, and
+     simulator checks separate so rule changes are easy to apply.
+   - Prefer false negatives during competition hardening over silently allowing
+     dependencies that will fail in the VM.
+
+6. Keep RL competitive work downstream.
+   - Train/evaluate PPO or other agents in `market_game_downstream/rl`.
+   - Select policies by held-out market performance, not only action-match
+     accuracy.
+   - Distill the selected policy into standalone source and validate that source
+     as the final artifact.
+
+Near-term implementation checklist:
+
+1. Add a `submitted_policy` evaluator command that accepts `--submission PATH`
+   and `--scenario...`, then reuses the existing scenario/evaluation plumbing.
+2. Add a held-out validation scenario config not used for teacher collection.
+3. Add an invalid-demand stress scenario to routine export validation.
+4. Add generated-submission regression fixtures for threshold, tree, and matrix
+   exports.
+5. Document the two supported local authoring paths:
+   - hand-written `compute_demand(...)`;
+   - RL checkpoint -> distilled standalone `compute_demand(...)`.
+6. When upstream simulator parity settles, port the evaluator/baseline pieces
+   into `python/market_game/simulation` in small PR-sized commits.
+
 ## Documentation Cleanup Still Open
 
 The root planning notes were consolidated here. Remaining documentation cleanup

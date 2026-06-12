@@ -1,7 +1,0 @@
-# HELICS User Guide - Undocumented Cloning Filter Example
-
-This example is not documented in the HELICS User Guide as it was developed to test a bug found in the configuration of HELICS cloning filter (fixed in v3.6). The correct configuration was documented in the Configuration Options Reference but given the simplicity of the example, it didn't seem to warrant full documentation as part of the formal documentation. Nevertheless, it does serve as a useful example of the cloning filter in action and also exposes a timing bug that, as of v3.6, has not been fixed. Thus, this example is being preserved in HELICS-Examples repository in its undocumented state.
-
-To see the correct configuration of a cloning filter, look at "LoggerConfig.json".
-
-The timing bug demonstrated in this example is one that has haunted HELICS for several years. At times, when requesting HELICS_TIME_MAXTIME, HELICS will either not wake a federate when it receives incoming messages or publications or it will cause the federation to hang. This example has been constructed such that the Logger and Controller federate change their time request behavior based on the "--max_time" command-line flag. When set, they request HELICS_TIME_MAXTIME and when not set, they request the next second. Each time-request behavior has been implement in a separate runner file for ease of comparison. As of v3.6, expected behavior is that calling `helics run --path=clone_runner_next_time` will run to completion and and `helics run --path=clone_runner_max_time` will not.
