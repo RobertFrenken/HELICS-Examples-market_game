@@ -1,4 +1,9 @@
-"""Player template for the HELICS market game.
+"""Compatibility player template for the HELICS market game.
+
+New HELICS house work should start from ``python/market_game/house_template.py``.
+This downstream copy is kept for older local experiments while simulator,
+training, evaluation, and export work continue to live under
+``python/market_game_downstream``.
 
 If you are new to HELICS and just want to play, focus on these two things:
 

@@ -15,7 +15,7 @@ flowchart TD
 | Package | Role |
 |---|---|
 | `market_game_downstream.core` | Canonical pure-Python rules, battery limits, pricing, profiles, clamping, and episode simulation. |
-| `market_game` | HELICS communication, house templates, local runner, plotting. |
+| `market_game` | Canonical HELICS communication, house templates, local runner, plotting, and classroom/CTF-facing strategy shape. |
 | `market_game_downstream.rl` | Policies, legal observations, Gymnasium adapter, RLlib training, and evaluation commands. |
 | `market_game_downstream.tests` | Smoke, parity, scenario, export, and optional RLlib tests. |
 
@@ -36,9 +36,11 @@ config for repeatable pure simulations.
 core objects. Existing commands and imports continue to work while new code can
 import directly from `python.market_game_downstream.core`.
 
-The original `House.compute_demand(...)` strategy API is still supported. The
-HELICS template also exposes `ActionHouse` and `DeltaHouse` for students who
-want to choose battery actions or battery deltas instead of raw market load.
+The original `House.compute_demand(...)` strategy API is still supported.
+`python/market_game/house_template.py` also exposes `ActionHouse` and
+`DeltaHouse` for students who want to choose battery actions or battery deltas
+instead of raw market load. The older `market_game_downstream.helics` copy is
+compatibility-only and should not be extended as a separate runtime surface.
 
 ## Dependency Rule
 

@@ -1,4 +1,18 @@
-# Market Game Student Start
+# Downstream HELICS Compatibility Notes
+
+The canonical HELICS house template and student-facing game guide now live in
+`python/market_game`. Start there for local play and classroom/CTF submission
+shape:
+
+- `python/market_game/house_template.py`
+- `python/market_game/market_game.md`
+
+This downstream HELICS directory is kept only for older local experiments that
+already imported it. New strategy work should use the canonical template above,
+and downstream RL/export work should target a standalone `compute_demand(...)`
+function.
+
+## Historical Student Start
 
 Each team controls one house for a 24-hour electricity market game. Every hour
 your house sees the current price, its base demand, and its battery charge. Your
@@ -8,7 +22,8 @@ You do not need to understand HELICS to play. Start by editing a house strategy.
 
 ## 5-Minute Path
 
-1. Copy an example from `houses/` into a new file ending in `_house.py`.
+1. Copy an example from `python/market_game/houses/` into a new file ending in
+   `_house.py`.
 2. Give the class and player name a unique name.
 3. Implement either `compute_demand(...)` or the simpler `choose_action(...)`.
 4. From `python/market_game`, run:
@@ -28,8 +43,7 @@ Use `ActionHouse` when you want to choose only charge, neutral, or discharge.
 ```python
 import argparse
 
-from house_template import ActionHouse
-from python.market_game_downstream.core import BatteryAction
+from house_template import ActionHouse, BatteryAction
 
 
 class MyHouse(ActionHouse):

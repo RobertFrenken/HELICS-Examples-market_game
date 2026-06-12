@@ -21,8 +21,7 @@ For Python environment setup across uv, pip, Windows, Linux, and macOS, see
 
 ## What To Edit
 
-Start from [house_template.py](house_template.py).
-The usual workflow is:
+Start from [house_template.py](house_template.py). The usual workflow is:
 
 1. Copy it into `python/market_game/houses/`, for example `my_house.py`.
 2. Create a subclass of `House`.
@@ -65,6 +64,23 @@ if __name__ == "__main__":
     house.run()
     house.plot_results()
 ```
+
+If you prefer choosing only a battery action, use `ActionHouse`:
+
+```python
+from house_template import ActionHouse, BatteryAction
+
+class MyHouse(ActionHouse):
+    def choose_action(self, price, hour, battery_charge, demand, price_history):
+        if price <= 0.12:
+            return BatteryAction.CHARGE
+        if price >= 0.49:
+            return BatteryAction.DISCHARGE
+        return BatteryAction.NEUTRAL
+```
+
+`DeltaHouse` is also available when you want to return a desired battery change
+in kWh instead of the final market load.
 
 ## What Your Strategy Sees
 
