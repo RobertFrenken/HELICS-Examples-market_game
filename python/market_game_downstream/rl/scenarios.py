@@ -62,6 +62,7 @@ class CompetitionScenario:
     profile_type: str = "profile1"
     seed: int = 1
     policy_factories: list[PolicyFactory] = field(default_factory=list)
+    players: list[dict[str, Any]] = field(default_factory=list)
     config: MarketGameConfig = DEFAULT_CONFIG
 
     def demand(self) -> list[float]:
@@ -85,6 +86,23 @@ class CompetitionScenario:
             self.policies(),
             replace(self.config, demand_profile=self.demand()),
         )
+
+    def training_observation_mode(self) -> str | None:
+        """Return scenario-declared learner observation mode, when present."""
+        for player in self.players:
+            if player.get("role") == "rl_training_agent":
+                mode = player.get("observation_mode")
+                if isinstance(mode, str) and mode:
+                    return mode
+        return None
+
+    def submitted_players(self) -> list[dict[str, Any]]:
+        """Return submitted-function player metadata for validation/HELICS."""
+        return [
+            dict(player)
+            for player in self.players
+            if player.get("role") == "submitted_function"
+        ]
 
     def with_policy_factory(
         self,
@@ -276,13 +294,29 @@ def _scenario_from_config(
         name=_required_string(item, "name"),
         profile_type=_profile_type(item.get("profile_type", "profile1")),
         seed=seed,
-        policy_factories=_policy_factories(item.get("opponents", []), scenario_seed=seed),
+        policy_factories=_scenario_policy_factories(item, scenario_seed=seed),
+        players=_players(item.get("players", [])),
+    )
+
+
+def _scenario_policy_factories(
+    item: dict[str, object],
+    scenario_seed: int,
+) -> list[PolicyFactory]:
+    opponent_entries = item.get("opponents", [])
+    player_entries = _submitted_player_opponent_entries(item.get("players", []))
+    mirrored_keys = _submitted_entry_keys(opponent_entries)
+    extra_player_entries = [
+        entry for entry in player_entries if _submitted_entry_key(entry) not in mirrored_keys
+    ]
+    return _policy_factories(
+        [*(_opponent_entries(opponent_entries)), *extra_player_entries],
+        scenario_seed=scenario_seed,
     )
 
 
 def _policy_factories(items: object, scenario_seed: int) -> list[PolicyFactory]:
-    if not isinstance(items, list):
-        raise ValueError("scenario 'opponents' must be a list")
+    items = _opponent_entries(items)
     house_count = 1 + _opponent_count(items)
     factories: list[PolicyFactory] = []
     next_index = 0
@@ -308,6 +342,72 @@ def _opponent_count(items: list[object]) -> int:
         else:
             raise ValueError("opponent entries must be policy names or objects")
     return total
+
+
+def _opponent_entries(items: object) -> list[object]:
+    if not isinstance(items, list):
+        raise ValueError("scenario 'opponents' must be a list")
+    return list(items)
+
+
+def _players(items: object) -> list[dict[str, Any]]:
+    if items is None:
+        return []
+    if not isinstance(items, list):
+        raise ValueError("scenario 'players' must be a list")
+    players: list[dict[str, Any]] = []
+    for player in items:
+        if not isinstance(player, dict):
+            raise ValueError("scenario player entries must be objects")
+        role = player.get("role")
+        if not isinstance(role, str) or not role:
+            raise ValueError("scenario player entries must define non-empty string 'role'")
+        players.append(dict(player))
+    return players
+
+
+def _submitted_player_opponent_entries(players: object) -> list[dict[str, object]]:
+    entries: list[dict[str, object]] = []
+    for player in _players(players):
+        if player.get("role") != "submitted_function":
+            continue
+        path = player.get("path")
+        if not isinstance(path, str) or not path:
+            raise ValueError("submitted_function players must define non-empty string 'path'")
+        name = player.get("name", "SubmittedHouse")
+        if not isinstance(name, str) or not name:
+            raise ValueError("submitted_function player name must be a non-empty string")
+        count = _positive_int(player.get("count", 1), "submitted_function count")
+        entry: dict[str, object] = {
+            "type": "SubmittedFunctionPolicy",
+            "path": path,
+            "kwargs": {"name": name},
+        }
+        if count != 1:
+            entry["count"] = count
+        entries.append(entry)
+    return entries
+
+
+def _submitted_entry_keys(items: object) -> set[tuple[str, str]]:
+    return {
+        key
+        for item in _opponent_entries(items)
+        if (key := _submitted_entry_key(item)) is not None
+    }
+
+
+def _submitted_entry_key(item: object) -> tuple[str, str] | None:
+    if not isinstance(item, dict):
+        return None
+    if item.get("type") not in SUBMISSION_POLICY_TYPES:
+        return None
+    path = item.get("path")
+    kwargs = item.get("kwargs", {})
+    name = kwargs.get("name", "SubmittedHouse") if isinstance(kwargs, dict) else "SubmittedHouse"
+    if isinstance(path, str) and isinstance(name, str):
+        return (path, name)
+    return None
 
 
 def _policy_factories_from_item(

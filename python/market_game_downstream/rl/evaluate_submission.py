@@ -26,6 +26,7 @@ def practice_rows(args: argparse.Namespace) -> list[dict[str, str]]:
             "submission failed 24-hour validation "
             f"(hours={report.hours}, clamps={report.clamps})"
         )
+    submission_name = args.name
     scenario_args = argparse.Namespace(
         stock=False,
         scenario=args.scenario,
@@ -33,10 +34,17 @@ def practice_rows(args: argparse.Namespace) -> list[dict[str, str]]:
         seeds=None,
         config=args.config,
         submission=args.submission,
-        submission_name=args.name,
-        only_submission=True,
+        submission_name=submission_name,
+        only_submission=not getattr(args, "include_baselines", False),
     )
-    return [_practice_row(row) for row in rows_for_args(scenario_args)]
+    rows = rows_for_args(scenario_args)
+    submitted_rows = [row for row in rows if row["agent"] == submission_name]
+    if len(submitted_rows) != 1:
+        raise SubmissionValidationError(
+            f"expected exactly one scored row for submission {submission_name!r}"
+        )
+    _validate_scored_submission_row(submitted_rows[0])
+    return [_practice_row(row) for row in rows]
 
 
 def write_practice_rows(rows: list[dict[str, str]]) -> None:
@@ -53,6 +61,24 @@ def _practice_row(row: dict[str, str]) -> dict[str, str]:
         "final_battery": row["final_battery"],
         "clamps": row["clamps"],
     }
+
+
+def _validate_scored_submission_row(row: dict[str, str]) -> None:
+    clamps = _int_field(row, "clamps")
+    if clamps:
+        raise SubmissionValidationError(
+            "submission failed scored scenario validation "
+            f"(scenario={row['scenario']}, clamps={clamps})"
+        )
+
+
+def _int_field(row: dict[str, str], name: str) -> int:
+    try:
+        return int(row[name])
+    except (KeyError, ValueError) as exc:
+        raise SubmissionValidationError(
+            f"submission scenario row has invalid {name!r}: {row.get(name)!r}"
+        ) from exc
 
 
 def main() -> None:
@@ -83,6 +109,11 @@ def main() -> None:
         "--config",
         default=None,
         help="JSON scenario config path; defaults to rl/scenario_configs/weekly.json",
+    )
+    parser.add_argument(
+        "--include-baselines",
+        action="store_true",
+        help="include compact rows for the scenario baseline opponents",
     )
     args = parser.parse_args()
     try:

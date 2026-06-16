@@ -8,6 +8,7 @@ from .action_spaces_check import run_action_spaces_check
 from .env_check import run_env_smoke_check
 from .export_check import run_export_smoke_check
 from .gym_check import run_gym_smoke_check
+from .helics_config_check import run_helics_config_check
 from .parity_check import assert_stock_parity
 from .scenario_check import run_scenario_smoke_check
 from .shared_core_check import run_import_safety_check, run_shared_core_check
@@ -30,6 +31,8 @@ def run_core_checks() -> None:
     print("export smoke: ok")
     run_gym_smoke_check()
     print("gym env smoke: ok")
+    run_helics_config_check()
+    print("helics config: ok")
 
 
 def main() -> None:

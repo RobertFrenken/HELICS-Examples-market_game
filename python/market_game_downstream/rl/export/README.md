@@ -4,7 +4,8 @@ This directory is the boundary between flexible local training and a
 competition-safe submitted house policy.
 
 The local workbench can use Gymnasium, Ray, Torch, checkpoints, oracle traces,
-and scenario randomization. The exported artifact should be a plain function:
+and scenario randomization. The exported artifact is a standalone `.py` file
+with a plain top-level function:
 
 ```python
 def compute_demand(price, hour, battery_charge, demand, price_history):
@@ -14,6 +15,11 @@ def compute_demand(price, hour, battery_charge, demand, price_history):
 Use `validators.py` to check that an exported function has the expected
 signature, avoids obviously unsafe runtime dependencies, returns finite numeric
 loads, and survives a 24-hour pure-simulator run.
+
+This export format is intentionally narrower than the HELICS classroom template:
+do not submit a `House` subclass here. If a local strategy starts as a policy
+object or house class, export or copy only its `compute_demand(...)` logic into
+the top-level function above.
 
 Examples:
 

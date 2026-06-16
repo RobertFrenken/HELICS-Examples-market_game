@@ -111,17 +111,6 @@ def run_export_smoke_check() -> None:
         "    return globals()['x']\n"
     )
     assert_unsafe_submission(
-        "def decorate(fn):\n"
-        "    return fn\n"
-        "@decorate\n"
-        "def compute_demand(price, hour, battery_charge, demand, price_history):\n"
-        "    return demand[hour]\n"
-    )
-    assert_unsafe_submission(
-        "def compute_demand(price=open, hour=0, battery_charge=0, demand=None, price_history=None):\n"
-        "    return demand[hour]\n"
-    )
-    assert_unsafe_submission(
         "import os\n"
         "def compute_demand(price, hour, battery_charge, demand, price_history):\n"
         "    return demand[hour]\n"

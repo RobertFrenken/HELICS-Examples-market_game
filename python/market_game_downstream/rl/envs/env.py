@@ -14,6 +14,7 @@ from ..agents.observations import (
     update_inference_belief,
 )
 from ..agents.policies import FollowDemandPolicy
+from ..policy_callables import call_compute_demand, reset_policy
 from ..action_spaces import (
     DEFAULT_ACTION_SPACE,
     ActionMapper,
@@ -104,9 +105,7 @@ class MarketGameEnv:
         self.inference_belief.reset()
         self.last_inference_features = InferenceFeatures()
         for policy in self.opponent_policies:
-            reset = getattr(policy, "reset", None)
-            if reset is not None:
-                reset()
+            reset_policy(policy)
 
         return self._make_observation(), self._make_info()
 
@@ -174,7 +173,8 @@ class MarketGameEnv:
     def _opponent_hour_inputs(self, base_demand: float) -> list[HouseHourInput]:
         hour_inputs: list[HouseHourInput] = []
         for policy, battery in zip(self.opponent_policies, self.opponent_batteries):
-            proposed = policy.compute_demand(
+            proposed = call_compute_demand(
+                policy,
                 self.current_price,
                 self.hour,
                 battery.energy,

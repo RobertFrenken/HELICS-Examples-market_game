@@ -32,10 +32,10 @@ def make_default_opponents() -> list:
 
 def make_env(env_config: dict[str, Any] | None = None) -> GymMarketGameEnv:
     env_config = env_config or {}
-    observation_mode = env_config.get("observation_mode", ObservationMode.PRICE_HISTORY.value)
     scenario_name = env_config.get("scenario")
     opponent_policies = make_default_opponents()
     market_config = None
+    scenario_observation_mode = None
     if scenario_name:
         scenarios = load_scenarios(
             env_config.get("scenario_config"),
@@ -43,6 +43,11 @@ def make_env(env_config: dict[str, Any] | None = None) -> GymMarketGameEnv:
         )
         scenario = scenario_by_name(str(scenario_name), scenarios)
         opponent_policies, market_config = scenario.to_env_config()
+        scenario_observation_mode = scenario.training_observation_mode()
+    observation_mode = env_config.get(
+        "observation_mode",
+        scenario_observation_mode or ObservationMode.PRICE_HISTORY.value,
+    )
     return GymMarketGameEnv(
         opponent_policies=opponent_policies,
         config=market_config if market_config is not None else DEFAULT_CONFIG,
@@ -53,7 +58,7 @@ def make_env(env_config: dict[str, Any] | None = None) -> GymMarketGameEnv:
 
 
 def build_ppo_config(
-    observation_mode: ObservationMode | str = ObservationMode.PRICE_HISTORY,
+    observation_mode: ObservationMode | str | None = ObservationMode.PRICE_HISTORY,
     scenario: str | None = None,
     scenario_config: str | None = None,
     scenario_seed: int | None = None,
@@ -65,7 +70,9 @@ def build_ppo_config(
     num_env_runners: int = 0,
 ) -> PPOConfig:
     """Build a small local PPO config for smoke training and early experiments."""
-    env_config = {"observation_mode": ObservationMode(observation_mode).value}
+    env_config = {}
+    if observation_mode is not None:
+        env_config["observation_mode"] = ObservationMode(observation_mode).value
     if scenario:
         env_config["scenario"] = scenario
     if scenario_config:
@@ -113,7 +120,7 @@ def extract_training_summary(iteration: int, result: dict[str, Any]) -> dict[str
 
 def evaluate_algorithm(
     algorithm: Any,
-    observation_mode: ObservationMode | str,
+    observation_mode: ObservationMode | str | None,
     scenarios: list[str],
     scenario_config: str | None = None,
     scenario_seed: int | None = None,
@@ -121,14 +128,14 @@ def evaluate_algorithm(
     """Run deterministic full-episode evaluations for a trained algorithm."""
     rows = []
     for scenario in scenarios:
-        env = make_env(
-            {
-                "observation_mode": ObservationMode(observation_mode).value,
-                "scenario": scenario,
-                "scenario_config": scenario_config,
-                "scenario_seed": scenario_seed,
-            }
-        )
+        env_config = {
+            "scenario": scenario,
+            "scenario_config": scenario_config,
+            "scenario_seed": scenario_seed,
+        }
+        if observation_mode is not None:
+            env_config["observation_mode"] = ObservationMode(observation_mode).value
+        env = make_env(env_config)
         obs, info = env.reset(seed=scenario_seed)
         terminated = False
         truncated = False
@@ -191,7 +198,7 @@ def _print_evaluation_rows(rows: list[dict[str, Any]]) -> None:
 
 def train(
     iterations: int,
-    observation_mode: ObservationMode | str,
+    observation_mode: ObservationMode | str | None,
     scenario: str | None = None,
     scenario_config: str | None = None,
     scenario_seed: int | None = None,
@@ -279,7 +286,8 @@ def main() -> None:
     parser.add_argument(
         "--observation-mode",
         choices=[mode.value for mode in ObservationMode],
-        default=ObservationMode.PRICE_HISTORY.value,
+        default=None,
+        help="override scenario-declared training observation mode",
     )
     parser.add_argument(
         "--scenario",

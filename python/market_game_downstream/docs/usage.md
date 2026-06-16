@@ -80,8 +80,9 @@ per-scenario rank by `total_cost_mean` for each policy.
 
 ## Submission Evaluation
 
-Use `evaluate_submission` when you want a compact practice score for the exact
-standalone `.py` file intended for submission:
+Use `evaluate_submission` when you want a compact practice score for a
+standalone `.py` submission file. This file defines a top-level function, not a
+`House` subclass:
 
 ```bash
 python3 -m python.market_game_downstream.rl.evaluate_submission \
@@ -96,13 +97,23 @@ house,total_load,total_cost,final_battery,clamps
 
 The compact command validates the file first with the export validator,
 including signature, import-safety, finite numeric output, and a 24-hour smoke
-run with no clamped loads.
+run with no clamped loads. It also rejects the selected scored scenario if the
+submitted row clamps.
+
+Add `--include-baselines` to include compact rows for the selected scenario's
+baseline opponents:
+
+```bash
+python3 -m python.market_game_downstream.rl.evaluate_submission \
+  python/market_game_downstream/rl/export/example_threshold_submission.py \
+  --include-baselines
+```
 
 Use `evaluate_scenarios --submission` when you want to score the exact
-standalone `.py` file against the richer scenario CSV diagnostics. This
+standalone function file against the richer scenario CSV diagnostics. This
 pure-Python route does not require HELICS and it runs the same
-`compute_demand(...)` interface used by the classroom template. The file must
-define:
+`compute_demand(...)` arguments used by the classroom template. The file must
+define this top-level function:
 
 ```python
 def compute_demand(price, hour, battery_charge, demand, price_history):
@@ -158,6 +169,45 @@ python3 -m python.market_game_downstream.rl.training.train_rllib --iterations 1 
 ```
 
 The command verifies integration. It is not a tuned experiment.
+
+## HELICS Configs From RL Scenarios
+
+Use `helics_config` when you want to run a downstream RL scenario through the
+canonical `python/market_game` HELICS runtime:
+
+```bash
+python3 -m python.market_game_downstream.rl.helics_config \
+  --scenario week_1_baselines \
+  --scenario-seed 3 \
+  --output python/market_game/houses.json
+```
+
+Then run the generated federation:
+
+```bash
+uv run helics run --path=python/market_game/houses.json
+```
+
+Add an exported or hand-written `compute_demand(...)` file as the first HELICS
+house:
+
+```bash
+python3 -m python.market_game_downstream.rl.helics_config \
+  --scenario week_1_baselines \
+  --submission python/market_game_downstream/rl/export/example_threshold_submission.py \
+  --submission-name ExportedStudent \
+  --output python/market_game/houses.json
+```
+
+The generated config launches `python/market_game/policy_house.py`, which wraps
+downstream policy objects or standalone submission files in the official
+`House` template. This is for local HELICS validation of trained or distilled
+policies; PPO training itself still uses the faster simulator/Gymnasium path.
+
+For the cleanest workflow, put submitted-function players and the training
+agent's observation mode in the scenario JSON. Then `evaluate_scenarios`,
+`train_rllib`, and `helics_config` can all consume the same named scenario with
+fewer command-specific flags.
 
 ## Environment Interface
 

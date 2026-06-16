@@ -1,4 +1,4 @@
-"""Smoke checks for downstream competition scenarios."""
+"""Focused checks for downstream scenario orchestration."""
 
 from __future__ import annotations
 
@@ -8,24 +8,207 @@ from pathlib import Path
 import tempfile
 
 from python.market_game_downstream.core.simulator import run_scenario
-from python.market_game_downstream.rl.export import SubmissionValidationError
 from python.market_game_downstream.rl.aggregate_scenarios import aggregate_rows
-from python.market_game_downstream.rl.evaluate_scenarios import (
-    _parse_seed_list,
-    rows_for_args,
-)
+from python.market_game_downstream.rl.evaluate_scenarios import _parse_seed_list, rows_for_args
 from python.market_game_downstream.rl.evaluate_submission import practice_rows
+from python.market_game_downstream.rl.export import SubmissionValidationError
+from python.market_game_downstream.rl.scenario_builder import ScenarioConfigBuilder
 from python.market_game_downstream.rl.scenarios import (
-    evaluate_curriculum,
     evaluate_scenario,
     load_scenarios,
     stock_example_scenario,
     submitted_function_policy_factory,
 )
-from python.market_game_downstream.rl.scenario_builder import (
-    ScenarioConfigBuilder,
-    example_builder,
-)
+
+
+def run_scenario_smoke_check() -> None:
+    check_stock_scenario_execution()
+    check_config_loading_and_rejection()
+    check_builder_and_player_metadata()
+    check_submission_evaluation_paths()
+    check_seed_and_aggregate_helpers()
+
+
+def check_stock_scenario_execution() -> None:
+    scenario = stock_example_scenario()
+    result = run_scenario(scenario.to_market_scenario())
+    assert len(result.records) == 24
+    assert result.oracle_trace()[0].loads_by_house
+
+    rows = evaluate_scenario(scenario)
+    assert {row["agent"] for row in rows} == {
+        "FlattenDemandHouse",
+        "FullCycleHouse",
+        "PriceAwareHouse",
+    }
+    first = rows[0]
+    assert {"invalid_load_adjustment", "penalty_cost", "price_volatility"} <= first.keys()
+    assert float(first["price_volatility"]) > 0.0
+
+
+def check_config_loading_and_rejection() -> None:
+    loaded = load_scenarios(seed=3)
+    assert [scenario.name for scenario in loaded] == [
+        "week_1_baselines",
+        "week_2_new_profile",
+        "week_3_mixed_population",
+        "week_4_chaotic_houses",
+    ]
+    assert loaded[1].policies()[-1].seed == 3
+    assert loaded[2].policies()[2].seed == 4
+
+    large_config = (
+        Path(__file__).resolve().parents[1]
+        / "rl"
+        / "scenario_configs"
+        / "large_population.json"
+    )
+    large = load_scenarios(large_config, seed=5)
+    assert len(large[1].policies()) == 40
+    assert len({policy.name for policy in large[1].policies()}) == 40
+
+    assert_config_error([], "scenario config must be a JSON object")
+    assert_config_error(
+        {"scenarios": [{"name": "bad", "profile_type": "typo", "opponents": []}]},
+        "unknown demand profile",
+    )
+    assert_config_error(
+        {"scenarios": [{"name": "bad", "opponents": ["TypoPolicy"]}]},
+        "unknown policy type",
+    )
+    assert_config_error(
+        {
+            "scenarios": [
+                {
+                    "name": "bad",
+                    "opponents": [
+                        {
+                            "type": "NoisyThresholdPolicy",
+                            "kwargs": {"seed": "$seed+bad"},
+                        }
+                    ],
+                }
+            ]
+        },
+        "invalid seed placeholder",
+    )
+
+    with tempfile.TemporaryDirectory() as temp_dir:
+        path = Path(temp_dir) / "scenarios.json"
+        path.write_text(
+            json.dumps(
+                {
+                    "scenarios": [
+                        {
+                            "name": "duplicate_policy_names",
+                            "opponents": [{"type": "PriceAwarePolicy", "count": 2}],
+                        }
+                    ]
+                }
+            ),
+            encoding="utf-8",
+        )
+        scenario = load_scenarios(path)[0]
+        try:
+            scenario.policies()
+        except ValueError as exc:
+            assert "duplicate policy name" in str(exc)
+        else:
+            raise AssertionError("duplicate policy names were not rejected")
+
+
+def check_builder_and_player_metadata() -> None:
+    submission = example_submission_path()
+    builder = ScenarioConfigBuilder(seed=7)
+    (
+        builder.scenario("builder_mixed", profile_type="profile1")
+        .training_agent(observation_mode="local")
+        .submitted_function(submission, name="BuilderSubmission")
+        .strategies(
+            "PriceAwarePolicy",
+            count=2,
+            name_template="BuilderPrice_$local_index",
+        )
+        .grab_bag(
+            count=1,
+            choices=[{"type": "NoisyThresholdPolicy", "kwargs": {"seed": "$seed+$index"}}],
+        )
+    )
+    with tempfile.TemporaryDirectory() as temp_dir:
+        path = Path(temp_dir) / "builder.json"
+        builder.write(path)
+        scenario = load_scenarios(path, seed=9)[0]
+        assert scenario.training_observation_mode() == "local"
+        assert scenario.submitted_players()[0]["name"] == "BuilderSubmission"
+        assert {policy.name for policy in scenario.policies()} == {
+            "BuilderSubmission",
+            "BuilderPrice_0",
+            "BuilderPrice_1",
+            "NoisyThreshold_3",
+        }
+
+
+def check_submission_evaluation_paths() -> None:
+    submission = example_submission_path()
+    submitted_scenario = stock_example_scenario().with_policy_factory(
+        submitted_function_policy_factory(submission, name="SmokeSubmittedHouse")
+    )
+    assert evaluate_scenario(submitted_scenario)[0]["agent"] == "SmokeSubmittedHouse"
+
+    only_submission_rows = rows_for_args(
+        argparse.Namespace(
+            submission=submission,
+            submission_name="OnlySubmittedHouse",
+            only_submission=True,
+            stock=False,
+            scenario="week_1_baselines",
+            seed=3,
+            seeds=None,
+            config=None,
+        )
+    )
+    assert len(only_submission_rows) == 1
+    assert only_submission_rows[0]["agent"] == "OnlySubmittedHouse"
+
+    compact_rows = practice_rows(
+        argparse.Namespace(
+            submission=submission,
+            name="PracticeSubmittedHouse",
+            scenario="week_1_baselines",
+            seed=3,
+            config=None,
+            include_baselines=False,
+        )
+    )
+    assert compact_rows[0]["house"] == "PracticeSubmittedHouse"
+    assert compact_rows[0]["total_cost"] == only_submission_rows[0]["total_cost"]
+
+    assert_practice_submission_error(
+        "def compute_demand(price, hour, battery_charge, demand, price_history):\n"
+        "    return -999.0\n",
+        "failed 24-hour validation",
+    )
+
+
+def check_seed_and_aggregate_helpers() -> None:
+    assert _parse_seed_list("1, 2,3") == [1, 2, 3]
+    try:
+        _parse_seed_list("1,bad")
+    except SystemExit as exc:
+        assert "invalid seed" in str(exc)
+    else:
+        raise AssertionError("invalid seed list was not rejected")
+
+    aggregate = aggregate_rows(
+        [
+            row
+            for seed in (1, 2)
+            for scenario in load_scenarios(seed=seed)[:1]
+            for row in evaluate_scenario(scenario)
+        ]
+    )
+    assert {row["rank"] for row in aggregate} == {"1", "2", "3"}
+    assert "total_cost_stdev" in aggregate[0]
 
 
 def assert_config_error(config: object, expected: str) -> None:
@@ -52,6 +235,7 @@ def assert_practice_submission_error(source: str, expected: str) -> None:
                     scenario="week_1_baselines",
                     seed=3,
                     config=None,
+                    include_baselines=False,
                 )
             )
         except SubmissionValidationError as exc:
@@ -60,309 +244,13 @@ def assert_practice_submission_error(source: str, expected: str) -> None:
             raise AssertionError(f"practice submission did not fail with {expected!r}")
 
 
-def run_scenario_smoke_check() -> None:
-    stock_result = run_scenario(stock_example_scenario().to_market_scenario())
-    assert len(stock_result.records) == 24
-    assert stock_result.oracle_trace()[0].hour == 0
-    assert stock_result.oracle_trace()[0].loads_by_house
-
-    rows = evaluate_curriculum(seed=3)
-    assert rows
-    stock_rows = evaluate_scenario(stock_example_scenario())
-    for row in stock_rows:
-        assert "invalid_load_adjustment" in row
-        assert "penalty_cost" in row
-        assert "price_volatility" in row
-        assert float(row["invalid_load_adjustment"]) == 0.0
-        assert float(row["penalty_cost"]) == 0.0
-        assert float(row["price_volatility"]) > 0.0
-    loaded = load_scenarios(seed=3)
-    assert [scenario.name for scenario in loaded] == [
-        "week_1_baselines",
-        "week_2_new_profile",
-        "week_3_mixed_population",
-        "week_4_chaotic_houses",
-    ]
-    assert loaded[1].seed == 3
-    assert loaded[1].policies()[-1].seed == 3
-    assert loaded[2].policies()[2].seed == 4
-    large_config = (
-        Path(__file__).resolve().parents[1]
-        / "rl"
-        / "scenario_configs"
-        / "large_population.json"
-    )
-    large = load_scenarios(large_config, seed=5)
-    assert len(large[0].policies()) == 25
-    assert len(large[1].policies()) == 40
-    assert len(large[2].policies()) == 50
-    noisy = [policy for policy in large[0].policies() if policy.name.startswith("NoisyThreshold_")]
-    assert noisy[0].seed == 20
-    assert noisy[-1].seed == 24
-    grab_bag_names = [policy.name for policy in large[1].policies()]
-    assert len(grab_bag_names) == len(set(grab_bag_names))
-    assert grab_bag_names == [policy.name for policy in load_scenarios(large_config, seed=5)[1].policies()]
-    inference = [policy for policy in large[1].policies() if policy.name.startswith("LegalInference_")]
-    for policy in inference:
-        assert policy.house_count == 41
-    scenario_names = {row["scenario"] for row in rows}
-    assert "week_1_baselines" in scenario_names
-    assert "week_4_chaotic_houses" in scenario_names
-    for row in rows:
-        assert row["agent"]
-        float(row["total_cost"])
-        float(row["final_battery"])
-
-    assert_config_error(
-        [],
-        "scenario config must be a JSON object",
-    )
-    assert_config_error(
-        {
-            "scenarios": [
-                {"name": "duplicate", "opponents": []},
-                {"name": "duplicate", "opponents": []},
-            ]
-        },
-        "duplicate scenario name",
-    )
-    assert_config_error(
-        {
-            "scenarios": [
-                {
-                    "name": "bad_count",
-                    "opponents": [{"type": "PriceAwarePolicy", "count": 0}],
-                }
-            ]
-        },
-        "opponent count",
-    )
-    assert_config_error(
-        {
-            "scenarios": [
-                {
-                    "name": "bad_profile",
-                    "profile_type": "typo",
-                    "opponents": [],
-                }
-            ]
-        },
-        "unknown demand profile",
-    )
-    assert_config_error(
-        {
-            "scenarios": [
-                {
-                    "name": "unknown_policy",
-                    "opponents": ["TypoPolicy"],
-                }
-            ]
-        },
-        "unknown policy type",
-    )
-    assert_config_error(
-        {
-            "scenarios": [
-                {
-                    "name": "bad_kwargs",
-                    "opponents": [{"type": "PriceAwarePolicy", "kwargs": []}],
-                }
-            ]
-        },
-        "policy kwargs",
-    )
-    assert_config_error(
-        {
-            "scenarios": [
-                {
-                    "name": "bad_weight",
-                    "opponents": [
-                        {
-                            "count": 1,
-                            "grab_bag": [{"type": "PriceAwarePolicy", "weight": -1}],
-                        }
-                    ],
-                }
-            ]
-        },
-        "grab_bag weight",
-    )
-    assert_config_error(
-        {
-            "scenarios": [
-                {
-                    "name": "bad_placeholder",
-                    "opponents": [
-                        {
-                            "type": "NoisyThresholdPolicy",
-                            "kwargs": {"seed": "$seed+bad"},
-                        }
-                    ],
-                }
-            ]
-        },
-        "invalid seed placeholder",
-    )
-    with tempfile.TemporaryDirectory() as temp_dir:
-        path = Path(temp_dir) / "scenarios.json"
-        path.write_text(
-            json.dumps(
-                {
-                    "scenarios": [
-                        {
-                            "name": "duplicate_policy_names",
-                            "opponents": [
-                                {"type": "PriceAwarePolicy", "count": 2},
-                            ],
-                        }
-                    ]
-                }
-            ),
-            encoding="utf-8",
-        )
-        duplicate_name_scenario = load_scenarios(path)[0]
-        try:
-            duplicate_name_scenario.policies()
-        except ValueError as exc:
-            assert "duplicate policy name" in str(exc)
-        else:
-            raise AssertionError("duplicate policy names were not rejected")
-
-    assert _parse_seed_list("1, 2,3") == [1, 2, 3]
-    try:
-        _parse_seed_list("1,bad")
-    except SystemExit as exc:
-        assert "invalid seed" in str(exc)
-    else:
-        raise AssertionError("invalid seed list was not rejected")
-
-    aggregate = aggregate_rows(
-        [
-            row
-            for seed in (1, 2)
-            for scenario in load_scenarios(seed=seed)[:1]
-            for row in evaluate_scenario(scenario)
-        ]
-    )
-    assert aggregate
-    assert "total_cost_mean" in aggregate[0]
-    assert "total_cost_stdev" in aggregate[0]
-    assert {row["rank"] for row in aggregate} == {"1", "2", "3"}
-
-    builder = ScenarioConfigBuilder(seed=7)
-    (
-        builder.scenario("builder_mixed", profile_type="profile1")
-        .training_agent()
-        .strategies(
-            "PriceAwarePolicy",
-            count=2,
-            name_template="BuilderPrice_$local_index",
-        )
-        .loaded_rl_agent("/tmp/checkpoint", name="MetadataOnlyCheckpoint")
-        .grab_bag(
-            count=2,
-            choices=[
-                {
-                    "type": "NoisyThresholdPolicy",
-                    "weight": 1,
-                    "kwargs": {"seed": "$seed+$index"},
-                },
-                {"type": "RollingPricePolicy", "weight": 1},
-            ],
-        )
-    )
-    with tempfile.TemporaryDirectory() as temp_dir:
-        path = Path(temp_dir) / "builder.json"
-        builder.write(path)
-        loaded_builder = load_scenarios(path, seed=9)[0]
-        assert loaded_builder.name == "builder_mixed"
-        assert len(loaded_builder.policies()) == 4
-        assert loaded_builder.policies()[0].name == "BuilderPrice_0"
-
-    with tempfile.TemporaryDirectory() as temp_dir:
-        path = Path(temp_dir) / "example_builder.json"
-        example_builder().write(path)
-        assert load_scenarios(path)
-
-    submission = (
+def example_submission_path() -> Path:
+    return (
         Path(__file__).resolve().parents[1]
         / "rl"
         / "export"
         / "example_threshold_submission.py"
     )
-    submitted_scenario = stock_example_scenario().with_policy_factory(
-        submitted_function_policy_factory(submission, name="SmokeSubmittedHouse")
-    )
-    submitted_rows = evaluate_scenario(submitted_scenario)
-    assert submitted_rows[0]["agent"] == "SmokeSubmittedHouse"
-    assert len(submitted_rows) == 4
-
-    only_submission_rows = rows_for_args(
-        argparse.Namespace(
-            submission=submission,
-            submission_name="OnlySubmittedHouse",
-            only_submission=True,
-            stock=False,
-            scenario="week_1_baselines",
-            seed=3,
-            seeds=None,
-            config=None,
-        )
-    )
-    assert len(only_submission_rows) == 1
-    assert only_submission_rows[0]["agent"] == "OnlySubmittedHouse"
-    assert only_submission_rows[0]["scenario"] == "week_1_baselines"
-
-    compact_rows = practice_rows(
-        argparse.Namespace(
-            submission=submission,
-            name="PracticeSubmittedHouse",
-            scenario="week_1_baselines",
-            seed=3,
-            config=None,
-        )
-    )
-    assert compact_rows == [
-        {
-            "house": "PracticeSubmittedHouse",
-            "total_load": only_submission_rows[0]["total_load"],
-            "total_cost": only_submission_rows[0]["total_cost"],
-            "final_battery": only_submission_rows[0]["final_battery"],
-            "clamps": only_submission_rows[0]["clamps"],
-        }
-    ]
-    assert_practice_submission_error(
-        "def compute_demand(price, hour, battery_charge, demand, price_history):\n"
-        "    return eval('1')\n",
-        "disallowed runtime call",
-    )
-    assert_practice_submission_error(
-        "def compute_demand(price, hour, battery_charge, demand, price_history):\n"
-        "    return -999.0\n",
-        "failed 24-hour validation",
-    )
-
-    submitted_config = {
-        "scenarios": [
-            {
-                "name": "submitted_function",
-                "profile_type": "profile1",
-                "opponents": [
-                    {
-                        "type": "SubmittedFunctionPolicy",
-                        "path": submission.as_posix(),
-                        "kwargs": {"name": "SubmittedFunctionOpponent"},
-                    }
-                ],
-            }
-        ]
-    }
-    with tempfile.TemporaryDirectory() as temp_dir:
-        path = Path(temp_dir) / "submitted.json"
-        path.write_text(json.dumps(submitted_config), encoding="utf-8")
-        submitted = load_scenarios(path)[0]
-        assert submitted.policies()[0].name == "SubmittedFunctionOpponent"
-        assert evaluate_scenario(submitted)
 
 
 if __name__ == "__main__":

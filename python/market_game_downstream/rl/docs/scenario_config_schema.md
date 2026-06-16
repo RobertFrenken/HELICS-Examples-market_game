@@ -21,9 +21,9 @@ python3 -m python.market_game_downstream.rl.scenario_builder --output /tmp/custo
 The builder writes the same JSON schema documented here and adds optional
 `players` metadata so a scenario can describe the controlled RL training agent,
 built-in strategy opponents, submitted `compute_demand` functions, and loaded
-RL checkpoints in one place. The loader executes built-in strategies and
-submitted functions through `opponents`. RL checkpoint players are metadata
-only until a checkpoint-opponent wrapper is added.
+RL checkpoints in one place. Submitted-function players are executable and can
+be used by the simulator and HELICS config generator. RL checkpoint players are
+metadata only until a checkpoint-opponent wrapper is added.
 
 ## Top Level
 
@@ -55,7 +55,7 @@ Scenario fields:
 | `profile_type` | No | Demand profile name: `profile1`, `profile_solar`, `flat`, `random`, `spike`, or `dspike`. |
 | `seed` | No | Per-scenario seed. Overridden by CLI `--seed` or `--scenario-seed`. |
 | `opponents` | Yes | List of explicit agents, repeated blocks, or grab-bag blocks. |
-| `players` | No | Optional builder metadata describing player roles. Ignored by the simulator loader. |
+| `players` | No | Optional player-role metadata. `submitted_function` players are executable; `rl_training_agent` supplies training defaults. |
 
 ## Available Agent Types
 
@@ -87,6 +87,37 @@ Submitted function policies can also be loaded as executable opponents:
 
 The file must define a valid `compute_demand(price, hour, battery_charge,
 demand, price_history)` function accepted by the export validator.
+
+The same submitted file can be declared in `players` when you want one scenario
+file to drive evaluation and HELICS validation:
+
+```json
+{
+  "players": [
+    {
+      "role": "submitted_function",
+      "path": "python/market_game_downstream/rl/export/example_threshold_submission.py",
+      "name": "SubmittedFunctionOpponent"
+    }
+  ],
+  "opponents": [
+    "PriceAwarePolicy"
+  ]
+}
+```
+
+Use an `rl_training_agent` player to keep the learner defaults with the scenario:
+
+```json
+{
+  "role": "rl_training_agent",
+  "name": "TrainingAgent",
+  "observation_mode": "price_history"
+}
+```
+
+`train_rllib --scenario ...` uses this observation mode when
+`--observation-mode` is omitted.
 
 Each type accepts the constructor kwargs from
 `python/market_game_downstream/rl/agents/policies.py`. Common kwargs include:
@@ -307,6 +338,9 @@ python3 -m python.market_game_downstream.rl.training.train_rllib \
 
 - Keep `weekly.json` small for fast checks.
 - Put serious training populations in a separate config.
+- Treat scenario JSON as the orchestration surface: training, simulator
+  evaluation, submitted-function checks, and HELICS config generation should all
+  read the same named scenario when possible.
 - Prefer unique names for generated agents.
 - Use `$house_count` for inference policies so the config stays correct when
   the population size changes.

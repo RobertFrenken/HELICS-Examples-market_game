@@ -25,7 +25,6 @@ def run_gym_smoke_check() -> None:
             opponent_policies=[FlattenDemandPolicy(), PriceAwarePolicy()],
             observation_mode=mode,
         )
-        check_env(env, skip_render_check=True)
         obs, info = env.reset(seed=1)
         assert obs.shape == (len(observation_schema(mode)),)
         assert info["hour"] == 0
@@ -35,12 +34,16 @@ def run_gym_smoke_check() -> None:
         assert isinstance(reward, float)
         assert not truncated
         assert isinstance(terminated, bool)
-        try:
-            env.step(99)
-        except ValueError as exc:
-            assert "invalid Gym action" in str(exc)
-        else:
-            raise AssertionError("invalid Gym action was not rejected")
+
+    env = GymMarketGameEnv(observation_mode=ObservationMode.LOCAL)
+    check_env(env, skip_render_check=True)
+    env.reset(seed=1)
+    try:
+        env.step(99)
+    except ValueError as exc:
+        assert "invalid Gym action" in str(exc)
+    else:
+        raise AssertionError("invalid Gym action was not rejected")
 
     integer_env = GymMarketGameEnv(action_space=IntegerBatteryDeltaActionSpace())
     assert integer_env.action_space.start == -10

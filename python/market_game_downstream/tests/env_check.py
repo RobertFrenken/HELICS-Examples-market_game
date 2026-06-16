@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from python.market_game_downstream.rl.agents.observations import (
     OBSERVATION_SCHEMAS,
+    ObservationMode,
 )
 from python.market_game_downstream.rl.agents.policies import (
     FlattenDemandPolicy,
@@ -20,33 +21,37 @@ def run_env_smoke_check() -> None:
     )
 
     for mode, schema in OBSERVATION_SCHEMAS.items():
-        expected_dim = len(schema)
-        assert expected_dim == len(set(schema)), mode
-        env = MarketGameEnv(
-            opponent_policies=[FlattenDemandPolicy(), PriceAwarePolicy()],
-            observation_mode=mode,
-        )
+        assert len(schema) == len(set(schema)), mode
+        env = MarketGameEnv(observation_mode=mode)
         obs, info = env.reset()
-        assert len(obs) == expected_dim, (mode, len(obs))
+        assert len(obs) == len(schema), (mode, len(obs))
         assert info["hour"] == 0
+        obs, reward, terminated, truncated, info = env.step(BatteryPosture.NEUTRAL)
+        assert len(obs) == len(schema), (mode, len(obs))
+        assert isinstance(reward, float)
+        assert not truncated
 
-        terminated = False
-        steps = 0
-        total_reward = 0.0
-        while not terminated:
-            obs, reward, terminated, truncated, info = env.step(BatteryPosture.NEUTRAL)
-            assert not truncated
-            assert len(obs) == expected_dim, (mode, len(obs))
-            total_reward += reward
-            steps += 1
+    env = MarketGameEnv(
+        opponent_policies=[FlattenDemandPolicy(), PriceAwarePolicy()],
+        observation_mode=ObservationMode.PRICE_HISTORY,
+    )
+    env.reset()
+    terminated = False
+    steps = 0
+    total_reward = 0.0
+    while not terminated:
+        obs, reward, terminated, truncated, info = env.step(BatteryPosture.NEUTRAL)
+        assert not truncated
+        total_reward += reward
+        steps += 1
 
-        assert steps == 24, steps
-        assert abs(total_reward + info["total_cost"]) < 1e-9
+    assert steps == 24, steps
+    assert abs(total_reward + info["total_cost"]) < 1e-9
 
-        obs_again, info_again = env.reset()
-        assert len(obs_again) == expected_dim
-        assert info_again["hour"] == 0
-        assert info_again["total_cost"] == 0
+    obs_again, info_again = env.reset()
+    assert len(obs_again) == len(OBSERVATION_SCHEMAS[ObservationMode.PRICE_HISTORY])
+    assert info_again["hour"] == 0
+    assert info_again["total_cost"] == 0
 
 
 if __name__ == "__main__":
