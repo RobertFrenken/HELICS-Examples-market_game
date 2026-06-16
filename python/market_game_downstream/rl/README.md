@@ -114,11 +114,13 @@ multi-agent RL usage where scenario names identify benchmark/game variants,
 while the Gymnasium/RLlib object is still the environment.
 
 The default registry is `scenario_configs/weekly.json`. Larger populations are
-in `scenario_configs/large_population.json`. These files use standard JSON so
-scenario loading has no YAML dependency. Opponents can be listed by policy
-class name or as objects with `type`, `kwargs`, and optional `count`; stochastic
-policy seeds can use `$seed`, `$seed+N`, `$seed-N`, `$index`, or
-`$seed+$index` placeholders.
+in `scenario_configs/large_population.json`, final-selection scenarios are in
+`scenario_configs/held_out_validation.json`, and invalid-demand diagnostics are
+covered by `scenario_configs/invalid_demand_stress.json`. These files use
+standard JSON so scenario loading has no YAML dependency. Opponents can be
+listed by policy class name or as objects with `type`, `kwargs`, and optional
+`count`; stochastic policy seeds can use `$seed`, `$seed+N`, `$seed-N`,
+`$index`, or `$seed+$index` placeholders.
 
 For easier authoring, `scenario_builder.py` provides a Python builder that
 creates the same JSON format and records player roles such as RL training

@@ -32,6 +32,30 @@ The stable center is already present:
 The consolidation should reduce duplicate rule implementations, not add more
 wrappers around them.
 
+## Current Status
+
+Completed local workflow pieces:
+
+- duplicate-rule inventory: `market_game_downstream/docs/rule_inventory.md`;
+- compact standalone-submission scoring:
+  `python3 -m python.market_game_downstream.rl.evaluate_submission`;
+- richer scenario scoring for standalone files through
+  `evaluate_scenarios --submission`;
+- held-out validation scenarios:
+  `market_game_downstream/rl/scenario_configs/held_out_validation.json`;
+- invalid-demand stress scenario:
+  `market_game_downstream/rl/scenario_configs/invalid_demand_stress.json`;
+- routine smoke coverage for generated threshold, tree, and matrix exports and
+  for invalid-demand penalty diagnostics.
+
+Still open: upstream simulator/parity PR #136 acceptance, small
+upstream-shaped evaluator ports, PPO checkpoint sweep tooling, and
+checkpoint-as-peer opponent support.
+
+Retired in this repo: the duplicate `market_game_downstream.helics` runtime
+copy. The remaining files under that directory are compatibility notes pointing
+to canonical `python/market_game`.
+
 ## Target Roles
 
 | Area | Role | Dependency rule |
@@ -209,12 +233,13 @@ separation, it is probably not on the critical path.
 
 ## Immediate Next Steps
 
-1. Build the duplicate-rule inventory.
-2. Mark non-ABI wrappers as downstream-only or deletion candidates.
-3. Promote the existing `evaluate_scenarios --submission` route, or replace it
-   with a thin user-facing alias only if the current command is too heavy.
-4. Prepare the smallest dependency-free simulator PR needed by that workflow.
-5. Add focused parity tests for the ported rules.
-6. Add baseline and scenario convenience after the submission workflow is
-   stable.
-7. Thin downstream imports only after upstream-shaped code exists.
+1. Wait for upstream simulator/parity PR #136 to land, then record the landed
+   commit in `market_game_open_work.md`.
+2. Prepare the smallest dependency-free simulator/evaluator PR needed by the
+   submission workflow.
+3. Add focused parity tests for any ported rules.
+4. Add PPO checkpoint sweep tooling and checkpoint-by-checkpoint validation CSV
+   output.
+5. Add a checkpoint-as-peer opponent wrapper only if checkpoint policies need
+   to participate as ordinary pure-simulator players.
+6. Thin downstream imports only after upstream-shaped code exists.

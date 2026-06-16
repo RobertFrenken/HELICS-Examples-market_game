@@ -10,7 +10,14 @@ The default examples are:
 ```text
 python/market_game_downstream/rl/scenario_configs/weekly.json
 python/market_game_downstream/rl/scenario_configs/large_population.json
+python/market_game_downstream/rl/scenario_configs/held_out_validation.json
+python/market_game_downstream/rl/scenario_configs/invalid_demand_stress.json
 ```
+
+Use `weekly.json` for smoke checks and small curriculum examples,
+`large_population.json` for larger training/evaluation populations,
+`held_out_validation.json` for final selection and distillation validation, and
+`invalid_demand_stress.json` to exercise invalid-load penalty diagnostics.
 
 For programmatic authoring, use the builder:
 
@@ -65,6 +72,7 @@ Use these strings in `type` fields or directly in `opponents`:
 FlattenDemandPolicy
 FollowDemandPolicy
 FullCyclePolicy
+InvalidDemandPolicy
 LegalInferencePolicy
 NoisyThresholdPolicy
 OscillatingPolicy
@@ -124,6 +132,7 @@ Each type accepts the constructor kwargs from
 
 | Policy | Useful kwargs |
 |---|---|
+| `InvalidDemandPolicy` | `name`, `load_offset`; stress tests only |
 | `NoisyThresholdPolicy` | `name`, `seed`, `reserve`, `noise_scale` |
 | `OscillatingPolicy` | `name`, `period`, `phase` |
 | `RollingPricePolicy` | `name`, `window`, `cheap_ratio`, `expensive_ratio`, `reserve` |

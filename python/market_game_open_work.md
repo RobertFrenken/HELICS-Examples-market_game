@@ -30,6 +30,7 @@ env smoke: ok
 scenario smoke: ok
 export smoke: ok
 gym env smoke: ok
+helics config: ok
 ```
 
 ## Recent Cleanup And Robustness Changes
@@ -70,6 +71,25 @@ paths:
   `python3 -m python.market_game_downstream.rl.scenario_builder`.
 - Added extra export-validator negative tests for unsafe imports and runtime
   `eval(...)`.
+- Added a HELICS runner-config generator that converts downstream RL scenarios
+  into canonical `python/market_game` federations and can insert a standalone
+  `compute_demand(...)` export as the first house.
+- Added compact standalone-submission scoring:
+  `python3 -m python.market_game_downstream.rl.evaluate_submission`.
+- Added `python/market_game_downstream/docs/rule_inventory.md` to identify
+  canonical rule owners and downstream-only wrappers.
+- Added generated-submission regression checks for threshold, tree, and matrix
+  distillation exports.
+- Added held-out validation scenarios in
+  `python/market_game_downstream/rl/scenario_configs/held_out_validation.json`.
+- Added invalid-demand stress scenarios in
+  `python/market_game_downstream/rl/scenario_configs/invalid_demand_stress.json`
+  and routine smoke coverage that exercises penalty diagnostics.
+- Confirmed upstream simulator/parity PR status on 2026-06-16:
+  <https://github.com/GMLC-TDC/HELICS-Examples/pull/136> is open, not merged.
+- Retired the duplicate downstream HELICS runtime files under
+  `python/market_game_downstream/helics`; remaining files are compatibility
+  notes pointing to canonical `python/market_game`.
 
 Validation run for this checkpoint:
 
@@ -78,6 +98,7 @@ python -m compileall -q python/market_game python/market_game_downstream
 python python/market_game/tests/check_all.py
 python -m python.market_game_downstream.tests.check_all
 python -m python.market_game_downstream.rl.evaluate_scenarios --scenario week_1_baselines --seeds 1,2
+python -m python.market_game_downstream.rl.helics_config --scenario week_1_baselines --output /tmp/houses.json
 git diff --check
 ```
 
@@ -87,14 +108,15 @@ Completed or already staged upstream:
 
 - Invalid-demand runtime fix landed upstream as
   `826b5a7 Fix market game invalid demand handling (#134)`.
-- Pure-Python simulator/parity branch exists in the clean PR worktree:
-  `market-game-simulator-parity`.
+- Pure-Python simulator/parity PR is open, not merged:
+  <https://github.com/GMLC-TDC/HELICS-Examples/pull/136>
+  (`market-game-simulator-parity`).
 
 Open upstream sequence:
 
-1. Confirm whether the simulator/parity PR has been accepted. If accepted,
-   record its PR URL and landed commit here.
-2. Port the baseline evaluator next.
+1. Wait for the simulator/parity PR to be accepted. If accepted, record its
+   landed commit here.
+2. Port the baseline evaluator next after PR #136 settles.
    - Source candidates:
      `python/market_game_downstream/rl/agents/policies.py`,
      `python/market_game_downstream/rl/evaluate.py`, and small shared pieces
@@ -133,13 +155,11 @@ Open training/evaluation tasks:
 2. Add an executable RLlib checkpoint opponent wrapper if loaded checkpoint
    agents need to participate as peer players inside pure-simulator scenario
    evaluations. The builder currently records loaded checkpoints as metadata.
-3. Add a held-out validation scenario config that is not used for teacher
-   action collection.
-4. Save evaluation CSVs so runs can be compared without reading terminal logs.
-5. Train longer against `week_1_baselines`, then larger scenario configs.
-6. Evaluate checkpoints every fixed number of iterations.
-7. Compare `local`, `price_history`, and `inference` observation modes.
-8. Sweep at least three training seeds before drawing conclusions.
+3. Save evaluation CSVs so runs can be compared without reading terminal logs.
+4. Train longer against `week_1_baselines`, then larger scenario configs.
+5. Evaluate checkpoints every fixed number of iterations.
+6. Compare `local`, `price_history`, and `inference` observation modes.
+7. Sweep at least three training seeds before drawing conclusions.
 
 Reference plan: `python/market_game_downstream/rl/docs/rl_tuning_plan.md`.
 
@@ -147,13 +167,15 @@ High-level additions worth doing next:
 
 - Add PPO checkpoint multi-seed sweeps matching the fixed-policy
   `evaluate_scenarios --seeds ...` workflow.
+- Use generated HELICS configs as the final local validation step for distilled
+  policies after simulator evaluation and before classroom/CTF handoff.
 - Add a true loaded-checkpoint player wrapper if checkpoint policies should run
   as market peers rather than only as the controlled RL learner or distillation
   teacher.
-- Add a held-out validation scenario config for distillation and final policy
-  selection.
-- Add one explicit invalid-demand stress scenario so penalty diagnostics are
-  exercised in regular evaluation output, not only unit checks.
+- Use `held_out_validation.json` for distillation and final policy selection.
+- Keep `invalid_demand_stress.json` in routine smoke checks so penalty
+  diagnostics stay exercised in regular evaluation output, not only unit
+  checks.
 - Decide whether `rl/evaluate.py` should remain as the fixed-baseline
   compatibility command or become a thin alias around `evaluate_scenarios`.
 
@@ -269,11 +291,13 @@ Near-term implementation checklist:
 1. Done: added `--submission PATH` support to
    `python.market_game_downstream.rl.evaluate_scenarios`, reusing the existing
    scenario/evaluation plumbing directly.
-2. Add a held-out validation scenario config not used for teacher collection.
-3. Add an invalid-demand stress scenario to routine export validation.
-4. Add generated-submission regression fixtures for threshold, tree, and matrix
-   exports.
-5. Document the two supported local authoring paths:
+2. Done: added `held_out_validation.json` for validation scenarios not used by
+   the default weekly teacher-collection examples.
+3. Done: added `invalid_demand_stress.json` and smoke coverage for invalid-load
+   adjustment and penalty diagnostics.
+4. Done: added generated-submission regression checks for threshold, tree, and
+   matrix exports.
+5. Done: documented the two supported local authoring paths:
    - hand-written `compute_demand(...)`;
    - RL checkpoint -> distilled standalone `compute_demand(...)`.
 6. When upstream simulator parity settles, port the evaluator/baseline pieces
@@ -300,9 +324,8 @@ Corrected direction:
    and local HELICS play.
 2. Keep `python/market_game_downstream` as the simulator, training,
    evaluation, validation, and export workbench.
-3. Shrink or retire `python/market_game_downstream/helics` instead of extending
-   it. If compatibility is needed, keep thin shims or docs that point back to
-   `python/market_game`.
+3. Done: retired the duplicate `python/market_game_downstream/helics` runtime
+   files. Compatibility notes now point back to `python/market_game`.
 4. Move any genuinely useful downstream HELICS improvements, such as
    dependency-light imports or action/delta authoring helpers, toward the
    canonical `python/market_game` path only if they do not make submission
@@ -312,10 +335,9 @@ Corrected direction:
 
 Next real refactor candidate:
 
-Audit `python/market_game_downstream/helics` for active use, then either delete
-or convert it into compatibility documentation/shims. The intended result is
-one HELICS house template, one market-maker implementation, and one obvious
-submission target.
+After upstream simulator/parity PR #136 settles, port the dependency-free
+baseline evaluator into upstream-shaped `python/market_game/simulation` paths.
+Keep the port small and avoid upstreaming downstream RL/scenario machinery.
 
 ## Documentation Cleanup Still Open
 

@@ -5,7 +5,6 @@ from __future__ import annotations
 import importlib
 import math
 from pathlib import Path
-import sys
 
 from python.market_game_downstream.core import (
     battery_delta_to_market_load,
@@ -137,10 +136,18 @@ def assert_value_error(call, expected: str) -> None:
 
 def run_import_safety_check() -> None:
     helics_path = Path(__file__).resolve().parents[1] / "helics"
-    if str(helics_path) not in sys.path:
-        sys.path.insert(0, str(helics_path))
+    retired_runtime_files = ("market_maker.py", "house_template.py", "battery.py")
+    for filename in retired_runtime_files:
+        if (helics_path / filename).exists():
+            raise AssertionError(
+                f"retired downstream HELICS runtime file still exists: {filename}"
+            )
 
-    for module_name in ("market_maker", "house_template", "battery"):
+    for module_name in (
+        "python.market_game_downstream.core.rules",
+        "python.market_game_downstream.core.simulator",
+        "python.market_game_downstream.rl.evaluate_submission",
+    ):
         importlib.import_module(module_name)
 
 

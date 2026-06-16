@@ -103,14 +103,16 @@ valid boundary actions.
 
 ## HELICS Log Message
 
-The downstream HELICS mirror prints invalid-demand messages ending with:
+The canonical HELICS runtime in `python/market_game` prints invalid-demand
+messages ending with:
 
 ```text
 and assessing penalty=<penalty_cost>
 ```
 
-The downstream HELICS `hourCost` total includes the clamped energy cost and the
-invalid-demand penalty.
+The HELICS `hourCost` total includes the clamped energy cost and the
+invalid-demand penalty. The older downstream HELICS runtime mirror has been
+retired so this behavior has one HELICS implementation.
 
 ## Fixed Clamp-Order Bug
 

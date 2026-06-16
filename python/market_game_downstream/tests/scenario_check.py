@@ -24,6 +24,7 @@ from python.market_game_downstream.rl.scenarios import (
 def run_scenario_smoke_check() -> None:
     check_stock_scenario_execution()
     check_config_loading_and_rejection()
+    check_held_out_and_invalid_demand_configs()
     check_builder_and_player_metadata()
     check_submission_evaluation_paths()
     check_seed_and_aggregate_helpers()
@@ -115,6 +116,31 @@ def check_config_loading_and_rejection() -> None:
             assert "duplicate policy name" in str(exc)
         else:
             raise AssertionError("duplicate policy names were not rejected")
+
+
+def check_held_out_and_invalid_demand_configs() -> None:
+    held_out = load_scenarios(scenario_config_path("held_out_validation.json"), seed=11)
+    weekly_names = {scenario.name for scenario in load_scenarios(seed=11)}
+    held_out_names = {scenario.name for scenario in held_out}
+    assert held_out_names == {
+        "validation_profile1_inference_mix",
+        "validation_random_grab_bag_24",
+        "validation_dspike_volatile_30",
+    }
+    assert not held_out_names.intersection(weekly_names)
+    assert len(held_out[1].policies()) == 24
+    assert len(held_out[2].policies()) == 30
+
+    invalid_stress = load_scenarios(
+        scenario_config_path("invalid_demand_stress.json"),
+        seed=11,
+    )[0]
+    rows = evaluate_scenario(invalid_stress)
+    invalid_row = next(row for row in rows if row["agent"] == "InvalidOvercharger")
+    assert int(invalid_row["boundary_warnings"]) == 24
+    assert int(invalid_row["clamps"]) == 24
+    assert float(invalid_row["invalid_load_adjustment"]) > 0.0
+    assert float(invalid_row["penalty_cost"]) > 0.0
 
 
 def check_builder_and_player_metadata() -> None:
@@ -251,6 +277,10 @@ def example_submission_path() -> Path:
         / "export"
         / "example_threshold_submission.py"
     )
+
+
+def scenario_config_path(name: str) -> Path:
+    return Path(__file__).resolve().parents[1] / "rl" / "scenario_configs" / name
 
 
 if __name__ == "__main__":

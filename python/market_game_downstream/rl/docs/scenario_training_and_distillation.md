@@ -55,6 +55,21 @@ populations live in:
 python/market_game_downstream/rl/scenario_configs/large_population.json
 ```
 
+Held-out validation scenarios live in:
+
+```text
+python/market_game_downstream/rl/scenario_configs/held_out_validation.json
+```
+
+These are intended for final policy selection and distillation validation, not
+for teacher-action collection over the default weekly curriculum.
+
+Invalid-demand diagnostics are exercised by:
+
+```text
+python/market_game_downstream/rl/scenario_configs/invalid_demand_stress.json
+```
+
 The scenario config format supports repeated opponent blocks with `count`, plus
 `$seed` and `$index` placeholders for policy parameters. That makes it possible
 to define 25, 40, or 50 opponent houses without manually listing every agent.
@@ -77,6 +92,14 @@ The large-population config currently includes:
 | `large_profile1_mixed_25` | 25 | Profile1 with a balanced mix of baseline, price-aware, rolling, noisy, and oscillating agents. |
 | `large_random_grab_bag_40` | 40 | Random profile with a seeded grab-bag population. |
 | `large_spike_grab_bag_50` | 50 | Double-spike stress scenario with a seeded chaotic grab bag. |
+
+The held-out validation config currently includes:
+
+| Scenario | Opponent count | Purpose |
+|---|---:|---|
+| `validation_profile1_inference_mix` | 4 | Small profile1 validation mix with legal inference and stochastic threshold behavior. |
+| `validation_random_grab_bag_24` | 24 | Random-profile held-out grab bag for multi-seed validation. |
+| `validation_dspike_volatile_30` | 30 | Double-spike validation population with volatile and oscillating opponents. |
 
 Evaluate fixed policies in a scenario:
 

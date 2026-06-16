@@ -2,10 +2,12 @@
 
 from __future__ import annotations
 
+import argparse
 from pathlib import Path
 import tempfile
 
 from python.market_game_downstream.rl.agents.policies import PriceAwarePolicy
+from python.market_game_downstream.rl.evaluate_scenarios import rows_for_args
 from python.market_game_downstream.rl.export import (
     SubmissionValidationError,
     ValidationReport,
@@ -44,6 +46,9 @@ def run_export_smoke_check() -> None:
     export_dir = Path(__file__).resolve().parents[1] / "rl" / "export"
     assert_valid_report(
         validate_submission_file(export_dir / "example_threshold_submission.py")
+    )
+    assert_submission_survives_invalid_demand_stress(
+        export_dir / "example_threshold_submission.py"
     )
 
     compute_demand = policy_to_compute_demand(PriceAwarePolicy())
@@ -119,6 +124,32 @@ def run_export_smoke_check() -> None:
         "def compute_demand(price, hour, battery_charge, demand, price_history):\n"
         "    return eval('1')\n"
     )
+
+
+def assert_submission_survives_invalid_demand_stress(submission: Path) -> None:
+    config = (
+        Path(__file__).resolve().parents[1]
+        / "rl"
+        / "scenario_configs"
+        / "invalid_demand_stress.json"
+    )
+    rows = rows_for_args(
+        argparse.Namespace(
+            submission=submission,
+            submission_name="StressSubmittedHouse",
+            only_submission=False,
+            stock=False,
+            scenario="invalid_demand_penalty_stress",
+            seed=5,
+            seeds=None,
+            config=config,
+        )
+    )
+    submitted = next(row for row in rows if row["agent"] == "StressSubmittedHouse")
+    invalid = next(row for row in rows if row["agent"] == "InvalidOvercharger")
+    assert submitted["clamps"] == "0"
+    assert float(invalid["invalid_load_adjustment"]) > 0.0
+    assert float(invalid["penalty_cost"]) > 0.0
 
 
 if __name__ == "__main__":

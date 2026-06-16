@@ -7,10 +7,9 @@ shape:
 - `python/market_game/house_template.py`
 - `python/market_game/market_game.md`
 
-This downstream HELICS directory is kept only for older local experiments that
-already imported it. New strategy work should use the canonical template above,
-and downstream RL/export work should target a standalone `compute_demand(...)`
-function.
+The duplicate downstream HELICS runtime files have been retired. New strategy
+work should use the canonical template above, and downstream RL/export work
+should target a standalone `compute_demand(...)` function.
 
 ## Historical Student Start
 
@@ -94,6 +93,6 @@ You do not directly see other houses' actions, batteries, costs, or code.
 
 ## Rules And Deeper Guides
 
-- `docs/game_rules.md`: battery limits, pricing tiers, timing diagram, and legal information.
-- `house_strategy_tutorial.md`: walkthrough of the included strategy examples.
-- `../market_game_downstream.rl/README.md`: fast simulator and RL training helpers.
+- `python/market_game/market_game.md`: gameplay and submission rules.
+- `python/market_game/house_strategy_tutorial.md`: walkthrough of the included strategy examples.
+- `python/market_game_downstream/rl/README.md`: fast simulator and RL training helpers.

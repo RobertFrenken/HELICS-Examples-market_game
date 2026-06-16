@@ -12,11 +12,13 @@ Layout:
 
 - `core/`: dependency-free market rules and pure Python simulator.
 - `docs/`: downstream architecture, usage, competition, and upstreaming notes.
-- `helics/`: downstream HELICS mirror that can import the shared core.
+- `helics/`: compatibility notes for the retired downstream HELICS mirror.
 - `tests/`: smoke, parity, scenario, and export validation tests.
 - `rl/`: policies, observation builders, Gymnasium/RLlib adapters, and training/evaluation commands.
 - `rl/export/`: wrappers and validators for self-contained `compute_demand`
   submissions.
+- `rl/scenario_configs/`: weekly, large-population, held-out validation, and
+  invalid-demand stress scenario JSON files.
 
 Run the local checks from the repository root:
 

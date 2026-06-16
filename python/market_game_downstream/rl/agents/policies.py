@@ -42,6 +42,28 @@ class FollowDemandPolicy:
 
 
 @dataclass
+class InvalidDemandPolicy:
+    """Stress opponent that deliberately submits illegal market loads."""
+
+    name: str = "InvalidDemandHouse"
+    load_offset: float = 100.0
+
+    def reset(self) -> None:
+        pass
+
+    def compute_demand(
+        self,
+        price: float,
+        hour: int,
+        battery_charge: float,
+        demand: list[float],
+        price_history: list[float],
+    ) -> float:
+        del price, battery_charge, price_history
+        return demand[hour] + self.load_offset
+
+
+@dataclass
 class FlattenDemandPolicy:
     """Price-blind baseline that uses the battery to flatten own demand."""
 

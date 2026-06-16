@@ -78,6 +78,23 @@ python3 -m python.market_game_downstream.rl.aggregate_scenarios /tmp/scenarios.c
 The aggregate CSV reports mean, sample standard deviation, min, max, and a
 per-scenario rank by `total_cost_mean` for each policy.
 
+Use the held-out validation config for final policy selection and distillation
+checks that should not reuse the default weekly curriculum:
+
+```bash
+python3 -m python.market_game_downstream.rl.evaluate_scenarios \
+  --config python/market_game_downstream/rl/scenario_configs/held_out_validation.json \
+  --seeds 1,2,3
+```
+
+Use the invalid-demand stress config when checking that diagnostics and penalty
+accounting still show up in routine scenario output:
+
+```bash
+python3 -m python.market_game_downstream.rl.evaluate_scenarios \
+  --config python/market_game_downstream/rl/scenario_configs/invalid_demand_stress.json
+```
+
 ## Submission Evaluation
 
 Use `evaluate_submission` when you want a compact practice score for a

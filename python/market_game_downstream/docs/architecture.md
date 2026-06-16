@@ -40,8 +40,9 @@ The original `House.compute_demand(...)` strategy API is the canonical
 classroom/CTF-facing interface. It returns the market-facing load as a finite
 numeric value; it is not limited to integers. RL-specific action abstractions,
 including coarse discrete battery actions, belong downstream in simulator and
-training adapters. The older `market_game_downstream.helics` copy is
-compatibility-only and should not be extended as a separate runtime surface.
+training adapters. The older `market_game_downstream.helics` runtime copy has
+been retired; the remaining files are compatibility notes that point back to
+`python/market_game`.
 
 `market_game_downstream.rl.action_spaces` owns learner-action mappings. The
 simulator and exported submissions still see only market load values. Current

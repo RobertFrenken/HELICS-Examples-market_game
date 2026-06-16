@@ -28,6 +28,7 @@ own battery charge, the demand profile, and price history.
 | `NoisyThresholdPolicy` | Applies seeded jitter to cheap and expensive price thresholds. | Repeatable stochastic opponent. |
 | `OscillatingPolicy` | Alternates charge/discharge pressure using a sinusoidal pattern, ignoring price. | Structured non-rational load swings. |
 | `VolatilitySeekingPolicy` | Charges into rising prices and discharges once prices are moderate or high. | Chaotic opponent that can amplify market movement. |
+| `InvalidDemandPolicy` | Deliberately submits illegal market loads. | Stress-only opponent for clamp, adjustment, and penalty diagnostics. |
 
 ## Notes
 
