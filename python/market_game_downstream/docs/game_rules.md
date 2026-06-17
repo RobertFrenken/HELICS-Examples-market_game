@@ -9,10 +9,9 @@ are now:
   duplicated rule behavior and canonical implementations;
 - `python/market_game_downstream/docs/invalid_demand_behavior.md` for
   invalid-demand clamping and penalty behavior;
-- `python/market_game_downstream/rl/docs/scenario_config_schema.md` for local
-  simulator and RL scenario configuration.
+- `python/market_game_downstream/rl/README.md` for local RL scenario and
+  training commands.
 
-Do not add new runtime logic under `python/market_game_downstream/helics`.
-Local HELICS validation should use `python/market_game` directly, including the
-generated runner configs from `python.market_game_downstream.rl.helics_config`
-when evaluating exported or hand-written `compute_demand(...)` submissions.
+Do not add a new `python/market_game_downstream/helics` runtime directory.
+Local HELICS validation should use `python/market_game` directly with exported
+or hand-written `compute_demand(...)` submissions.

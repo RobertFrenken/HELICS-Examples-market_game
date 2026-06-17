@@ -9,7 +9,7 @@ import gymnasium as gym
 import numpy as np
 from gymnasium import spaces
 
-from ..core.config import DEFAULT_CONFIG, MarketGameConfig
+from python.market_game_downstream.core import DEFAULT_CONFIG, MarketGameConfig
 from .env import MarketGameEnv, default_opponent_policies
 from ..action_spaces import (
     DEFAULT_ACTION_SPACE,
@@ -19,7 +19,7 @@ from ..action_spaces import (
     IntegerBatteryDeltaActionSpace,
 )
 from ..agents.observations import ObservationMode, observation_schema
-from ..core.simulator import HousePolicy
+from python.market_game_downstream.core import HousePolicy
 
 
 def observation_bounds(mode: ObservationMode, config: MarketGameConfig) -> tuple[np.ndarray, np.ndarray]:

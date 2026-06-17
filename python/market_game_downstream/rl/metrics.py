@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from .simulator import SimulationResult
+from python.market_game_downstream.core import SimulationResult
 
 
 def price_volatility(prices: list[float]) -> float:

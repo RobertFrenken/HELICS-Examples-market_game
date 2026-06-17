@@ -20,7 +20,7 @@ flowchart TD
 | `market_game_downstream.tests` | Smoke, parity, scenario, export, and optional RLlib tests. |
 
 See `rule_inventory.md` for the current map of duplicated rule behavior,
-canonical downstream sources, and downstream-only wrappers.
+canonical downstream sources, and downstream-owned helpers.
 
 ## Compatibility
 
@@ -32,9 +32,8 @@ calculation.
 `market_game_downstream.core.MarketScenario` packages policies, profile, initial price, and
 config for repeatable pure simulations.
 
-`market_game_downstream.rl.core.*` remains as a compatibility layer that re-exports shared
-core objects. Existing commands and imports continue to work while new code can
-import directly from `python.market_game_downstream.core`.
+RL code imports shared rules directly from `python.market_game_downstream.core`;
+the old `market_game_downstream.rl.core` compatibility layer has been removed.
 
 The original `House.compute_demand(...)` strategy API is the canonical
 classroom/CTF-facing interface. It returns the market-facing load as a finite
@@ -43,6 +42,10 @@ including coarse discrete battery actions, belong downstream in simulator and
 training adapters. The older `market_game_downstream.helics` runtime copy has
 been retired; the remaining files are compatibility notes that point back to
 `python/market_game`.
+
+The old `market_game_downstream.helics` compatibility notes now live in
+`docs/helics_compatibility.md` and `docs/game_rules.md`; there is no downstream
+HELICS package.
 
 `market_game_downstream.rl.action_spaces` owns learner-action mappings. The
 simulator and exported submissions still see only market load values. Current

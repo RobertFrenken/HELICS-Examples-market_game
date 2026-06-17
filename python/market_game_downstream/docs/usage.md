@@ -1,278 +1,41 @@
-# Market Game Downstream Usage
+# Downstream Usage
 
-Run commands from the repo root.
-
-## Checks
-
-Core checks:
+Run retained downstream checks:
 
 ```bash
 python3 -m python.market_game_downstream.tests.check_all
 ```
 
-Core checks plus the heavier Ray RLlib smoke check:
-
-```bash
-python3 -m python.market_game_downstream.tests.check_all --include-rllib
-```
-
-Individual checks:
-
-```bash
-python3 -m python.market_game_downstream.tests.shared_core_check
-python3 -m python.market_game_downstream.tests.parity_check
-python3 -m python.market_game_downstream.tests.env_check
-python3 -m python.market_game_downstream.tests.gym_check
-python3 -m python.market_game_downstream.tests.rllib_check
-```
-
-## Parity Output
-
-```bash
-python3 -m python.market_game_downstream.rl.evaluate --stock
-```
-
-Expected stock `profile1` output:
-
-```text
-agent,total_load,total_cost,final_battery
-FlattenDemandHouse,127.0000000000,35.4466666667,7.0000000000
-FullCycleHouse,120.0000000000,47.7466666667,0.0000000000
-PriceAwareHouse,125.0000000000,21.9533333333,5.0000000000
-```
-
-These values match a live HELICS run of the included example houses.
-
-## Baseline Evaluation
+Evaluate the default weekly RL scenarios:
 
 ```bash
 python3 -m python.market_game_downstream.rl.evaluate
 ```
 
-This prints CSV rows for the stock example, all-follow-demand baseline, and
-early heuristic mixes. `boundary_warnings` records invalid submitted values.
-`clamps` counts effective value changes and is the better constraint-quality
-metric.
-
-Invalid demand handling, penalty accounting, adjustment diagnostics, and
-combined-bound clamping are documented in `invalid_demand_behavior.md`.
-
-For configurable scenario evaluation with the same diagnostic columns, use:
+Evaluate one scenario or a seed sweep:
 
 ```bash
-python3 -m python.market_game_downstream.rl.evaluate_scenarios
+python3 -m python.market_game_downstream.rl.evaluate --scenario week_1_baselines
+python3 -m python.market_game_downstream.rl.evaluate --scenario week_1_baselines --seeds 1,2,3
 ```
 
-Scenario CSV rows include `invalid_load_adjustment`, `penalty_cost`, and
-`price_volatility` in addition to the basic cost/load fields.
-
-Use `--seeds 1,2,3` for repeated scenario sweeps.
-
-Save and aggregate a repeated sweep:
+Evaluate a standalone `compute_demand(...)` submission:
 
 ```bash
-python3 -m python.market_game_downstream.rl.evaluate_scenarios --seeds 1,2,3 > /tmp/scenarios.csv
-python3 -m python.market_game_downstream.rl.aggregate_scenarios /tmp/scenarios.csv
-```
-
-The aggregate CSV reports mean, sample standard deviation, min, max, and a
-per-scenario rank by `total_cost_mean` for each policy.
-
-Use the held-out validation config for final policy selection and distillation
-checks that should not reuse the default weekly curriculum:
-
-```bash
-python3 -m python.market_game_downstream.rl.evaluate_scenarios \
-  --config python/market_game_downstream/rl/scenario_configs/held_out_validation.json \
-  --seeds 1,2,3
-```
-
-Use the invalid-demand stress config when checking that diagnostics and penalty
-accounting still show up in routine scenario output:
-
-```bash
-python3 -m python.market_game_downstream.rl.evaluate_scenarios \
-  --config python/market_game_downstream/rl/scenario_configs/invalid_demand_stress.json
-```
-
-## Submission Evaluation
-
-Use `evaluate_submission` when you want a compact practice score for a
-standalone `.py` submission file. This file defines a top-level function, not a
-`House` subclass:
-
-```bash
-python3 -m python.market_game_downstream.rl.evaluate_submission \
-  python/market_game_downstream/rl/export/example_threshold_submission.py
-```
-
-The compact output is:
-
-```text
-house,total_load,total_cost,final_battery,clamps
-```
-
-The compact command validates the file first with the export validator,
-including signature, import-safety, finite numeric output, and a 24-hour smoke
-run with no clamped loads. It also rejects the selected scored scenario if the
-submitted row clamps.
-
-Add `--include-baselines` to include compact rows for the selected scenario's
-baseline opponents:
-
-```bash
-python3 -m python.market_game_downstream.rl.evaluate_submission \
-  python/market_game_downstream/rl/export/example_threshold_submission.py \
-  --include-baselines
-```
-
-Use `evaluate_scenarios --submission` when you want to score the exact
-standalone function file against the richer scenario CSV diagnostics. This
-pure-Python route does not require HELICS and it runs the same
-`compute_demand(...)` arguments used by the classroom template. The file must
-define this top-level function:
-
-```python
-def compute_demand(price, hour, battery_charge, demand, price_history):
-    ...
-```
-
-Evaluate one submitted file across the default weekly scenarios:
-
-```bash
-python3 -m python.market_game_downstream.rl.evaluate_scenarios \
-  --submission python/market_game_downstream/rl/export/example_threshold_submission.py \
-  --only-submission
-```
-
-Evaluate one submitted file against one named scenario:
-
-```bash
-python3 -m python.market_game_downstream.rl.evaluate_scenarios \
-  --submission python/market_game_downstream/rl/export/example_threshold_submission.py \
-  --scenario week_1_baselines \
-  --seed 3 \
-  --only-submission
-```
-
-Omit `--only-submission` to include opponent rows in the CSV. Use `--seeds` or
-`--config` the same way as `evaluate_scenarios`. The submission-only rows still
-use the scenario CSV format, including `total_load`, `total_cost`,
-`final_battery`, `boundary_warnings`, `clamps`, `invalid_load_adjustment`, and
-`penalty_cost`.
-
-Pure simulations may also be built directly with `python.market_game_downstream.core`:
-
-```python
-from python.market_game_downstream.core import MarketScenario, run_scenario
-from python.market_game_downstream.rl.agents.policies import FlattenDemandPolicy, PriceAwarePolicy
-
-scenario = MarketScenario(policies=[FlattenDemandPolicy(), PriceAwarePolicy()])
-result = run_scenario(scenario)
-```
-
-## Training Smoke Run
-
-Install optional training dependencies only when doing RL experiments:
-
-```bash
-python3 -m pip install --user --break-system-packages -r python/market_game_downstream/rl/requirements-training.txt
-```
-
-Then run:
-
-```bash
-python3 -m python.market_game_downstream.rl.training.train_rllib --iterations 1 --observation-mode price_history
-```
-
-The command verifies integration. It is not a tuned experiment.
-
-## HELICS Configs From RL Scenarios
-
-Use `helics_config` when you want to run a downstream RL scenario through the
-canonical `python/market_game` HELICS runtime:
-
-```bash
-python3 -m python.market_game_downstream.rl.helics_config \
-  --scenario week_1_baselines \
-  --scenario-seed 3 \
-  --output python/market_game/houses.json
-```
-
-Then run the generated federation:
-
-```bash
-uv run helics run --path=python/market_game/houses.json
-```
-
-Add an exported or hand-written `compute_demand(...)` file as the first HELICS
-house:
-
-```bash
-python3 -m python.market_game_downstream.rl.helics_config \
+python3 -m python.market_game_downstream.rl.evaluate \
   --scenario week_1_baselines \
   --submission python/market_game_downstream/rl/export/example_threshold_submission.py \
-  --submission-name ExportedStudent \
-  --output python/market_game/houses.json
+  --only-submission \
+  --validate-submission
 ```
 
-The generated config launches `python/market_game/policy_house.py`, which wraps
-downstream policy objects or standalone submission files in the official
-`House` template. This is for local HELICS validation of trained or distilled
-policies; PPO training itself still uses the faster simulator/Gymnasium path.
-
-For the cleanest workflow, put submitted-function players and the training
-agent's observation mode in the scenario JSON. Then `evaluate_scenarios`,
-`train_rllib`, and `helics_config` can all consume the same named scenario with
-fewer command-specific flags.
-
-## Environment Interface
-
-`MarketGameEnv` is Gymnasium-like but does not require Gymnasium:
-
-```python
-obs, info = env.reset()
-obs, reward, terminated, truncated, info = env.step(action)
-```
-
-The default smoke environment uses a coarse `BatteryPosture` action space:
-
-```text
--1  discharge
- 0  neutral
- 1  charge
-```
-
-`GymMarketGameEnv` wraps the same environment for Gymnasium-compatible training
-libraries. It maps Gym's `Discrete(3)` action indices as:
-
-```text
-0  discharge
-1  neutral
-2  charge
-```
-
-This is a starter/debug baseline, not the game interface and not the strongest
-RL action model. The game and exported submissions accept any finite numeric
-market load from `compute_demand(...)`. For more granular downstream RL
-experiments, pass `IntegerBatteryDeltaActionSpace` or
-`ContinuousNormalizedDeltaActionSpace` into `MarketGameEnv` or
-`GymMarketGameEnv`.
-
-Hidden aggregate market values are available only in `info["diagnostics"]`, not
-in the observation vector.
-
-## Scenario Builder
-
-Use the Python builder when a JSON file would be tedious to write by hand:
+Train with RLlib:
 
 ```bash
-python3 -m python.market_game_downstream.rl.scenario_builder --output /tmp/custom_scenarios.json
-python3 -m python.market_game_downstream.rl.evaluate_scenarios --config /tmp/custom_scenarios.json
+python3 -m python.market_game_downstream.rl.training.train_rllib \
+  --scenario week_1_baselines
 ```
 
-The builder can describe demand profiles, the controlled RL training agent,
-built-in strategy opponents, submitted `compute_demand` functions, stochastic
-grab-bag populations, and loaded RL checkpoints. Built-in strategies and
-submitted functions run in the pure simulator today; checkpoint players are
-recorded as metadata until a checkpoint-opponent wrapper is added.
+Shared rule code lives in `python.market_game_downstream.core`. Built-in RL
+scenarios live in `python.market_game_downstream.rl.scenarios`; add custom
+experiments there or construct `CompetitionScenario` objects in Python.

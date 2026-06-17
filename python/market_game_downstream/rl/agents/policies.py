@@ -6,7 +6,7 @@ from dataclasses import dataclass, field
 import math
 import random
 
-from ..core.config import DEFAULT_CONFIG
+from python.market_game_downstream.core import DEFAULT_CONFIG
 from .features import (
     distance_to_nearest_pricing_threshold,
     estimate_others_average_load,

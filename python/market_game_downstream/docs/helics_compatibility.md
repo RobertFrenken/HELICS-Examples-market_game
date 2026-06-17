@@ -1,4 +1,4 @@
-# Downstream HELICS Compatibility Notes
+# HELICS Compatibility Notes
 
 The canonical HELICS house template and student-facing game guide now live in
 `python/market_game`. Start there for local play and classroom/CTF submission
@@ -95,4 +95,4 @@ You do not directly see other houses' actions, batteries, costs, or code.
 
 - `python/market_game/market_game.md`: gameplay and submission rules.
 - `python/market_game/house_strategy_tutorial.md`: walkthrough of the included strategy examples.
-- `python/market_game_downstream/rl/README.md`: fast simulator and RL training helpers.
+- `python/market_game_downstream/rl/README.md`: simulator and RL training helpers.

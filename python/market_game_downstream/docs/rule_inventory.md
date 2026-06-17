@@ -19,10 +19,9 @@ around that interface.
 
 ## Wrapper Classification
 
-`market_game_downstream/rl/core/rules.py` and
-`market_game_downstream/rl/core/simulator.py` are compatibility re-exports.
-They are downstream-only wrappers, not canonical rule implementations. New code
-should import from `python.market_game_downstream.core`.
+The old `market_game_downstream/rl/core` compatibility re-export package has
+been removed. Downstream code should import shared rules directly from
+`python.market_game_downstream.core`.
 
 `market_game_downstream/rl/agents` may keep policy objects, action helpers, and
 training conveniences for experiments. Those are not competition ABI surfaces
@@ -34,30 +33,26 @@ experimentation back to the competition ABI. Exported files must define
 
 ## Submission Workflow Check
 
-The promoted compact route scores one standalone submission file:
+The retained route scores one standalone submission file:
 
 ```bash
-python3 -m python.market_game_downstream.rl.evaluate_submission \
-  python/market_game_downstream/rl/export/example_threshold_submission.py
-```
-
-It reuses the scenario evaluator and emits:
-
-```text
-house,total_load,total_cost,final_battery,clamps
-```
-
-The existing downstream scenario route can also score a standalone submission
-file:
-
-```bash
-python3 -m python.market_game_downstream.rl.evaluate_scenarios \
+python3 -m python.market_game_downstream.rl.evaluate \
+  --scenario week_1_baselines \
   --submission python/market_game_downstream/rl/export/example_threshold_submission.py \
-  --only-submission
+  --only-submission \
+  --validate-submission
 ```
 
-Do not build a second simulation path unless the existing evaluator proves too
-heavy for users.
+The same evaluator can also score a standalone submission file while keeping
+baseline rows:
+
+```bash
+python3 -m python.market_game_downstream.rl.evaluate \
+  --scenario week_1_baselines \
+  --submission python/market_game_downstream/rl/export/example_threshold_submission.py \
+```
+
+Do not build a second simulation path.
 
 Current output is scenario-oriented CSV with these columns:
 

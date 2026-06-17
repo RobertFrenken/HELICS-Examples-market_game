@@ -146,7 +146,7 @@ def run_import_safety_check() -> None:
     for module_name in (
         "python.market_game_downstream.core.rules",
         "python.market_game_downstream.core.simulator",
-        "python.market_game_downstream.rl.evaluate_submission",
+        "python.market_game_downstream.rl.evaluate",
     ):
         importlib.import_module(module_name)
 

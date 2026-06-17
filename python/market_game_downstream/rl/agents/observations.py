@@ -6,7 +6,7 @@ import math
 from dataclasses import dataclass
 from enum import Enum
 
-from ..core.config import DEFAULT_CONFIG, MarketGameConfig
+from python.market_game_downstream.core import DEFAULT_CONFIG, MarketGameConfig
 from .features import (
     distance_to_nearest_pricing_threshold,
     estimate_others_average_load,

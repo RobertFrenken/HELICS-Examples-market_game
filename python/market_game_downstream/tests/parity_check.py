@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from python.market_game_downstream.rl.core.simulator import run_episode
-from python.market_game_downstream.rl.evaluate import stock_scenario
+from python.market_game_downstream.core import run_episode
+from python.market_game_downstream.rl.scenarios import stock_example_scenario
 
 
 EXPECTED_STOCK = {
@@ -14,7 +14,7 @@ EXPECTED_STOCK = {
 
 
 def assert_stock_parity() -> None:
-    policies = [factory() for factory in stock_scenario().policy_factories]
+    policies = [factory() for factory in stock_example_scenario().policy_factories]
     result = run_episode(policies)
     for house in result.houses:
         expected_load, expected_cost, expected_battery = EXPECTED_STOCK[house.policy.name]

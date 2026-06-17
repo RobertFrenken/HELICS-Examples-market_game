@@ -15,11 +15,11 @@ from ray.rllib.algorithms.ppo import PPOConfig
 from ray.tune.registry import register_env
 import torch
 
-from ..core.config import DEFAULT_CONFIG
+from python.market_game_downstream.core import DEFAULT_CONFIG
 from ..envs.gym_env import GymMarketGameEnv
 from ..agents.observations import ObservationMode
 from ..agents.policies import FlattenDemandPolicy, PriceAwarePolicy
-from ..scenarios import load_scenarios, scenario_by_name
+from ..scenarios import scenario_by_name, weekly_training_scenarios
 
 
 ENV_NAME = "market_game_downstream.rl"
@@ -37,13 +37,9 @@ def make_env(env_config: dict[str, Any] | None = None) -> GymMarketGameEnv:
     market_config = None
     scenario_observation_mode = None
     if scenario_name:
-        scenarios = load_scenarios(
-            env_config.get("scenario_config"),
-            seed=env_config.get("scenario_seed"),
-        )
+        scenarios = weekly_training_scenarios(seed=env_config.get("scenario_seed", 1))
         scenario = scenario_by_name(str(scenario_name), scenarios)
         opponent_policies, market_config = scenario.to_env_config()
-        scenario_observation_mode = scenario.training_observation_mode()
     observation_mode = env_config.get(
         "observation_mode",
         scenario_observation_mode or ObservationMode.PRICE_HISTORY.value,
@@ -60,7 +56,6 @@ def make_env(env_config: dict[str, Any] | None = None) -> GymMarketGameEnv:
 def build_ppo_config(
     observation_mode: ObservationMode | str | None = ObservationMode.PRICE_HISTORY,
     scenario: str | None = None,
-    scenario_config: str | None = None,
     scenario_seed: int | None = None,
     train_batch_size: int = 192,
     minibatch_size: int = 64,
@@ -75,8 +70,6 @@ def build_ppo_config(
         env_config["observation_mode"] = ObservationMode(observation_mode).value
     if scenario:
         env_config["scenario"] = scenario
-    if scenario_config:
-        env_config["scenario_config"] = scenario_config
     if scenario_seed is not None:
         env_config["scenario_seed"] = scenario_seed
     config = (
@@ -122,7 +115,6 @@ def evaluate_algorithm(
     algorithm: Any,
     observation_mode: ObservationMode | str | None,
     scenarios: list[str],
-    scenario_config: str | None = None,
     scenario_seed: int | None = None,
 ) -> list[dict[str, Any]]:
     """Run deterministic full-episode evaluations for a trained algorithm."""
@@ -130,7 +122,6 @@ def evaluate_algorithm(
     for scenario in scenarios:
         env_config = {
             "scenario": scenario,
-            "scenario_config": scenario_config,
             "scenario_seed": scenario_seed,
         }
         if observation_mode is not None:
@@ -200,10 +191,9 @@ def train(
     iterations: int,
     observation_mode: ObservationMode | str | None,
     scenario: str | None = None,
-    scenario_config: str | None = None,
     scenario_seed: int | None = None,
     checkpoint_dir: str | None = None,
-    evaluate_scenarios: list[str] | None = None,
+    evaluation_scenario_names: list[str] | None = None,
     train_batch_size: int = 192,
     minibatch_size: int = 64,
     num_epochs: int = 2,
@@ -229,7 +219,6 @@ def train(
     algorithm = build_ppo_config(
         observation_mode=observation_mode,
         scenario=scenario,
-        scenario_config=scenario_config,
         scenario_seed=scenario_seed,
         train_batch_size=train_batch_size,
         minibatch_size=minibatch_size,
@@ -254,12 +243,11 @@ def train(
             checkpoint = getattr(checkpoint_result, "checkpoint", checkpoint_result)
             checkpoint_path = getattr(checkpoint, "path", checkpoint_result)
             print(f"checkpoint={checkpoint_path}")
-        if evaluate_scenarios:
+        if evaluation_scenario_names:
             rows = evaluate_algorithm(
                 algorithm,
                 observation_mode=observation_mode,
-                scenarios=evaluate_scenarios,
-                scenario_config=scenario_config,
+                scenarios=evaluation_scenario_names,
                 scenario_seed=scenario_seed,
             )
             _print_evaluation_rows(rows)
@@ -294,10 +282,6 @@ def main() -> None:
         help="named scenario from the scenario config to train against",
     )
     parser.add_argument(
-        "--scenario-config",
-        help="JSON scenario config path; defaults to rl/scenario_configs/weekly.json",
-    )
-    parser.add_argument(
         "--scenario-seed",
         type=int,
         help="seed override for generated scenario demand profiles and stochastic opponents",
@@ -317,10 +301,9 @@ def main() -> None:
         iterations=args.iterations,
         observation_mode=args.observation_mode,
         scenario=args.scenario,
-        scenario_config=args.scenario_config,
         scenario_seed=args.scenario_seed,
         checkpoint_dir=args.checkpoint_dir,
-        evaluate_scenarios=args.evaluate_scenario,
+        evaluation_scenario_names=args.evaluate_scenario,
         train_batch_size=args.train_batch_size,
         minibatch_size=args.minibatch_size,
         num_epochs=args.num_epochs,

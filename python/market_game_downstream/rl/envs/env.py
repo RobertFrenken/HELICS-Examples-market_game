@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-from ..core.config import DEFAULT_CONFIG, MarketGameConfig
+from python.market_game_downstream.core import DEFAULT_CONFIG, MarketGameConfig
 from ..agents.observations import (
     InferenceBelief,
     InferenceFeatures,
@@ -19,7 +19,13 @@ from ..action_spaces import (
     DEFAULT_ACTION_SPACE,
     ActionMapper,
 )
-from ..core.simulator import BatteryState, HouseHourInput, HousePolicy, HourRecord, step_market_hour
+from python.market_game_downstream.core import (
+    BatteryState,
+    HouseHourInput,
+    HousePolicy,
+    HourRecord,
+    step_market_hour,
+)
 
 
 def default_opponent_policies() -> list[HousePolicy]:
