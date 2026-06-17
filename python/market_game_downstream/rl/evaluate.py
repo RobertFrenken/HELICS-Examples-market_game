@@ -10,6 +10,7 @@ from .export.validators import SubmissionValidationError, validate_submission_fi
 from .scenarios import (
     CompetitionScenario,
     evaluate_scenario,
+    format_scenario_choices,
     scenario_by_name,
     stock_example_scenario,
     submitted_function_policy_factory,
@@ -106,6 +107,11 @@ def _parse_seed_list(value: str) -> list[int]:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="evaluate market-game RL scenarios")
+    parser.add_argument(
+        "--list-scenarios",
+        action="store_true",
+        help="print built-in scenario IDs and exit",
+    )
     parser.add_argument("--stock", action="store_true", help="evaluate the stock parity scenario")
     parser.add_argument("--scenario", help="evaluate one named scenario")
     parser.add_argument("--seed", type=int, default=1, help="scenario seed")
@@ -130,6 +136,9 @@ def main() -> None:
         help="validate --submission before scoring",
     )
     args = parser.parse_args()
+    if args.list_scenarios:
+        print(format_scenario_choices(seed=args.seed))
+        return
     if args.validate_submission:
         if not args.submission:
             raise SystemExit("--validate-submission requires --submission")

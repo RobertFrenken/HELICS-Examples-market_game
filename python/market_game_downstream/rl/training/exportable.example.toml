@@ -1,0 +1,10 @@
+[training]
+mode = "exportable"
+scenario = "week_1_baselines"
+scenario_seed = 1
+iterations = 8
+output = "runs/rl_exportable/submission.py"
+evaluate_scenario = [
+  "week_1_baselines",
+  "week_2_new_profile",
+]

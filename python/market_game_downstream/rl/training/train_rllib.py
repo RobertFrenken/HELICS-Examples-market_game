@@ -19,7 +19,7 @@ from python.market_game_downstream.core import DEFAULT_CONFIG
 from ..envs.gym_env import GymMarketGameEnv
 from ..agents.observations import ObservationMode
 from ..agents.policies import FlattenDemandPolicy, PriceAwarePolicy
-from ..scenarios import scenario_by_name, weekly_training_scenarios
+from ..scenarios import format_scenario_choices, scenario_by_name, weekly_training_scenarios
 
 
 ENV_NAME = "market_game_downstream.rl"
@@ -57,6 +57,7 @@ def build_ppo_config(
     observation_mode: ObservationMode | str | None = ObservationMode.PRICE_HISTORY,
     scenario: str | None = None,
     scenario_seed: int | None = None,
+    fcnet_hiddens: list[int] | None = None,
     train_batch_size: int = 192,
     minibatch_size: int = 64,
     num_epochs: int = 2,
@@ -88,6 +89,13 @@ def build_ppo_config(
             gamma=gamma,
         )
     )
+    if fcnet_hiddens is not None:
+        config = config.rl_module(
+            model_config={
+                "fcnet_hiddens": fcnet_hiddens,
+                "fcnet_activation": "tanh",
+            }
+        )
     return config
 
 
@@ -194,6 +202,7 @@ def train(
     scenario_seed: int | None = None,
     checkpoint_dir: str | None = None,
     evaluation_scenario_names: list[str] | None = None,
+    fcnet_hiddens: list[int] | None = None,
     train_batch_size: int = 192,
     minibatch_size: int = 64,
     num_epochs: int = 2,
@@ -220,6 +229,7 @@ def train(
         observation_mode=observation_mode,
         scenario=scenario,
         scenario_seed=scenario_seed,
+        fcnet_hiddens=fcnet_hiddens,
         train_batch_size=train_batch_size,
         minibatch_size=minibatch_size,
         num_epochs=num_epochs,
@@ -239,10 +249,12 @@ def train(
                 "num_env_steps_sampled={num_env_steps_sampled}".format(**summary)
             )
         if checkpoint_dir:
-            checkpoint_result = algorithm.save(Path(checkpoint_dir).as_posix())
+            checkpoint_path = Path(checkpoint_dir).resolve()
+            checkpoint_path.mkdir(parents=True, exist_ok=True)
+            checkpoint_result = algorithm.save(checkpoint_path.as_posix())
             checkpoint = getattr(checkpoint_result, "checkpoint", checkpoint_result)
-            checkpoint_path = getattr(checkpoint, "path", checkpoint_result)
-            print(f"checkpoint={checkpoint_path}")
+            saved_path = getattr(checkpoint, "path", checkpoint_result)
+            print(f"checkpoint={saved_path}")
         if evaluation_scenario_names:
             rows = evaluate_algorithm(
                 algorithm,
@@ -259,6 +271,11 @@ def train(
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="train PPO with Ray RLlib on the market-game env")
+    parser.add_argument(
+        "--list-scenarios",
+        action="store_true",
+        help="print built-in scenario IDs and exit",
+    )
     parser.add_argument("--iterations", type=int, default=1)
     parser.add_argument("--train-batch-size", type=int, default=192)
     parser.add_argument("--minibatch-size", type=int, default=64)
@@ -291,12 +308,22 @@ def main() -> None:
         help="directory where RLlib should save a checkpoint after training",
     )
     parser.add_argument(
+        "--fcnet-hiddens",
+        help=(
+            "comma-separated actor hidden layer sizes; use a small value like "
+            "8 for standalone export"
+        ),
+    )
+    parser.add_argument(
         "--evaluate-scenario",
         action="append",
         default=[],
         help="named scenario to evaluate after training; may be provided more than once",
     )
     args = parser.parse_args()
+    if args.list_scenarios:
+        print(format_scenario_choices(seed=args.scenario_seed or 1))
+        return
     train(
         iterations=args.iterations,
         observation_mode=args.observation_mode,
@@ -304,6 +331,7 @@ def main() -> None:
         scenario_seed=args.scenario_seed,
         checkpoint_dir=args.checkpoint_dir,
         evaluation_scenario_names=args.evaluate_scenario,
+        fcnet_hiddens=_parse_fcnet_hiddens(args.fcnet_hiddens),
         train_batch_size=args.train_batch_size,
         minibatch_size=args.minibatch_size,
         num_epochs=args.num_epochs,
@@ -311,6 +339,15 @@ def main() -> None:
         gamma=args.gamma,
         num_env_runners=args.num_env_runners,
     )
+
+
+def _parse_fcnet_hiddens(value: str | None) -> list[int] | None:
+    if value is None:
+        return None
+    hiddens = [int(part.strip()) for part in value.split(",") if part.strip()]
+    if not hiddens or any(hidden < 1 for hidden in hiddens):
+        raise ValueError("--fcnet-hiddens must contain positive integers")
+    return hiddens
 
 
 if __name__ == "__main__":

@@ -43,10 +43,12 @@ def main() -> None:
 
     run_core_checks()
     if args.include_rllib:
-        from .rllib_check import run_rllib_smoke_check
+        from .rllib_check import run_rllib_exportable_check, run_rllib_smoke_check
 
         run_rllib_smoke_check()
         print("rllib smoke: ok")
+        run_rllib_exportable_check()
+        print("rllib exportable e2e: ok")
 
 
 if __name__ == "__main__":

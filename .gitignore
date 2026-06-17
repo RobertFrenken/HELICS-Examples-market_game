@@ -181,6 +181,10 @@ celerybeat-schedule
 venv/
 ENV/
 
+# Market-game RL generated artifacts
+runs/
+ray_results/
+
 # Spyder project settings
 .spyderproject
 

@@ -136,6 +136,16 @@ def weekly_training_scenarios(seed: int = 1) -> list[CompetitionScenario]:
     ]
 
 
+def scenario_names(seed: int = 1) -> list[str]:
+    """Return the built-in weekly scenario IDs in registry order."""
+    return [scenario.name for scenario in weekly_training_scenarios(seed=seed)]
+
+
+def format_scenario_choices(seed: int = 1) -> str:
+    """Return a newline-delimited scenario list for CLI discovery."""
+    return "\n".join(scenario_names(seed=seed))
+
+
 def scenario_by_name(
     name: str,
     scenarios: list[CompetitionScenario] | None = None,
