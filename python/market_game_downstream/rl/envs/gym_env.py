@@ -11,6 +11,7 @@ from gymnasium import spaces
 
 from python.market_game_downstream.core import DEFAULT_CONFIG, MarketGameConfig
 from .env import MarketGameEnv, default_opponent_policies
+from ..rewards import RewardConfig
 from ..action_spaces import (
     DEFAULT_ACTION_SPACE,
     ActionMapper,
@@ -69,6 +70,7 @@ class GymMarketGameEnv(gym.Env):
         config: MarketGameConfig = DEFAULT_CONFIG,
         observation_mode: ObservationMode | str = ObservationMode.PRICE_HISTORY,
         action_space: ActionMapper = DEFAULT_ACTION_SPACE,
+        reward_config: RewardConfig | None = None,
         final_battery_target: float | None = None,
         final_battery_penalty: float = 0.0,
     ):
@@ -82,6 +84,7 @@ class GymMarketGameEnv(gym.Env):
             config=config,
             observation_mode=self.observation_mode,
             action_space=action_space,
+            reward_config=reward_config,
             final_battery_target=final_battery_target,
             final_battery_penalty=final_battery_penalty,
         )

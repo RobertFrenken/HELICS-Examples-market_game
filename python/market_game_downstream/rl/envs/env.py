@@ -19,6 +19,7 @@ from ..action_spaces import (
     DEFAULT_ACTION_SPACE,
     ActionMapper,
 )
+from ..rewards import RewardConfig, market_game_reward
 from python.market_game_downstream.core import (
     BatteryState,
     HouseHourInput,
@@ -62,6 +63,7 @@ class MarketGameEnv:
         config: MarketGameConfig = DEFAULT_CONFIG,
         observation_mode: ObservationMode | str = ObservationMode.PRICE_HISTORY,
         action_space: ActionMapper = DEFAULT_ACTION_SPACE,
+        reward_config: RewardConfig | None = None,
         final_battery_target: float | None = None,
         final_battery_penalty: float = 0.0,
     ):
@@ -73,8 +75,10 @@ class MarketGameEnv:
         )
         self.observation_mode = ObservationMode(observation_mode)
         self.action_space = action_space
-        self.final_battery_target = final_battery_target
-        self.final_battery_penalty = final_battery_penalty
+        self.reward_config = reward_config or RewardConfig(
+            final_battery_target=final_battery_target,
+            final_battery_penalty=final_battery_penalty,
+        )
 
         self.hour = 0
         self.current_price = config.initial_price
@@ -153,7 +157,6 @@ class MarketGameEnv:
 
         self.records.append(record)
 
-        reward = -own_cost
         self.current_price = record.next_price
         self.hour += 1
         terminated = self.hour >= self.config.episode_hours
@@ -161,7 +164,12 @@ class MarketGameEnv:
         if not terminated:
             self.price_history.append(self.current_price)
             self._update_inference_features()
-        reward = self._apply_terminal_penalty(reward, terminated)
+        reward = market_game_reward(
+            own_cost=own_cost,
+            final_battery=self.own_battery.energy,
+            terminated=terminated,
+            config=self.reward_config,
+        )
 
         info = self._make_info(
             EnvStepDiagnostics(
@@ -196,15 +204,6 @@ class MarketGameEnv:
                 )
             )
         return hour_inputs
-
-    def _apply_terminal_penalty(self, reward: float, terminated: bool) -> float:
-        if not terminated:
-            return reward
-        if self.final_battery_target is None or not self.final_battery_penalty:
-            return reward
-        return reward - self.final_battery_penalty * abs(
-            self.own_battery.energy - self.final_battery_target
-        )
 
     def _update_inference_features(self) -> None:
         if self.observation_mode != ObservationMode.INFERENCE:

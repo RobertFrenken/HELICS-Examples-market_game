@@ -2,9 +2,15 @@
 mode = "exportable"
 scenario = "week_1_baselines"
 scenario_seed = 1
-iterations = 8
+iterations = 16
+episodes_per_iteration = 16
+reward_cost_weight = 1.0
+final_battery_target = 0.0
+final_battery_penalty = 0.0
 output = "runs/rl_exportable/submission.py"
 evaluate_scenario = [
   "week_1_baselines",
   "week_2_new_profile",
+  "week_3_mixed_population",
+  "week_4_chaotic_houses",
 ]

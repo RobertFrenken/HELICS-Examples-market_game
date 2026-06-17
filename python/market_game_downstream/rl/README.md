@@ -7,6 +7,7 @@ Keep it small:
 
 - `agents/`: hand-authored baseline policies and legal observation features.
 - `envs/`: dependency-free environment plus the optional Gymnasium adapter.
+- `rewards.py`: training reward calculation and optional terminal shaping.
 - `training/`: RLlib training entry point.
 - `export_profiles.py`: shared contract for models that can become standalone
   submissions.
@@ -80,6 +81,11 @@ This command uses the supported export profile: `price_history` observations,
 the discrete battery-posture action space, and a one-hidden-layer tanh actor
 with 8 units. Arbitrary RLlib PPO checkpoints are not assumed to be
 competition-exportable.
+
+In TOML, `iterations` is PPO training iterations. `episodes_per_iteration`
+controls how many 24-hour market-game episodes are sampled per iteration.
+The default reward is negative hourly cost. `final_battery_target` and
+`final_battery_penalty` add optional terminal reward shaping for training only.
 
 Use the same entry point for smoke checks or unconstrained experiments:
 

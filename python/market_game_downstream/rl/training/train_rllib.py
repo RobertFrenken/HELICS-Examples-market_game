@@ -19,6 +19,7 @@ from python.market_game_downstream.core import DEFAULT_CONFIG
 from ..envs.gym_env import GymMarketGameEnv
 from ..agents.observations import ObservationMode
 from ..agents.policies import FlattenDemandPolicy, PriceAwarePolicy
+from ..rewards import RewardConfig
 from ..scenarios import format_scenario_choices, scenario_by_name, weekly_training_scenarios
 
 
@@ -48,8 +49,11 @@ def make_env(env_config: dict[str, Any] | None = None) -> GymMarketGameEnv:
         opponent_policies=opponent_policies,
         config=market_config if market_config is not None else DEFAULT_CONFIG,
         observation_mode=observation_mode,
-        final_battery_target=env_config.get("final_battery_target"),
-        final_battery_penalty=env_config.get("final_battery_penalty", 0.0),
+        reward_config=RewardConfig(
+            cost_weight=env_config.get("reward_cost_weight", 1.0),
+            final_battery_target=env_config.get("final_battery_target"),
+            final_battery_penalty=env_config.get("final_battery_penalty", 0.0),
+        ),
     )
 
 
@@ -64,6 +68,9 @@ def build_ppo_config(
     lr: float = 3e-4,
     gamma: float = 0.99,
     num_env_runners: int = 0,
+    reward_cost_weight: float = 1.0,
+    final_battery_target: float | None = None,
+    final_battery_penalty: float = 0.0,
 ) -> PPOConfig:
     """Build a small local PPO config for smoke training and early experiments."""
     env_config = {}
@@ -73,6 +80,10 @@ def build_ppo_config(
         env_config["scenario"] = scenario
     if scenario_seed is not None:
         env_config["scenario_seed"] = scenario_seed
+    env_config["reward_cost_weight"] = reward_cost_weight
+    if final_battery_target is not None:
+        env_config["final_battery_target"] = final_battery_target
+    env_config["final_battery_penalty"] = final_battery_penalty
     config = (
         PPOConfig()
         .environment(
@@ -209,6 +220,9 @@ def train(
     lr: float = 3e-4,
     gamma: float = 0.99,
     num_env_runners: int = 0,
+    reward_cost_weight: float = 1.0,
+    final_battery_target: float | None = None,
+    final_battery_penalty: float = 0.0,
 ) -> list[dict[str, Any]]:
     """Run a small PPO training job.
 
@@ -236,6 +250,9 @@ def train(
         lr=lr,
         gamma=gamma,
         num_env_runners=num_env_runners,
+        reward_cost_weight=reward_cost_weight,
+        final_battery_target=final_battery_target,
+        final_battery_penalty=final_battery_penalty,
     ).build_algo()
     results = []
     try:

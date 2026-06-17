@@ -40,6 +40,8 @@ def run_rllib_exportable_check() -> None:
                     'scenario = "week_1_baselines"',
                     "scenario_seed = 1",
                     "iterations = 1",
+                    "episodes_per_iteration = 1",
+                    "minibatch_size = 24",
                     f'checkpoint_dir = "{(temp_path / "checkpoint").as_posix()}"',
                     f'output = "{output_path.as_posix()}"',
                     'evaluate_scenario = ["week_1_baselines"]',

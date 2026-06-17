@@ -21,6 +21,7 @@ DEFAULT_CONFIG: dict[str, Any] = {
     "scenario": "week_1_baselines",
     "scenario_seed": 1,
     "iterations": None,
+    "episodes_per_iteration": None,
     "checkpoint_dir": None,
     "output": "runs/rl_exportable/submission.py",
     "train_batch_size": 192,
@@ -28,6 +29,9 @@ DEFAULT_CONFIG: dict[str, Any] = {
     "num_epochs": 2,
     "lr": 3e-4,
     "gamma": 0.99,
+    "reward_cost_weight": 1.0,
+    "final_battery_target": None,
+    "final_battery_penalty": 0.0,
     "num_env_runners": 0,
     "observation_mode": None,
     "fcnet_hiddens": None,
@@ -58,6 +62,7 @@ def main() -> None:
     parser.add_argument("--scenario", default=argparse.SUPPRESS)
     parser.add_argument("--scenario-seed", type=int, default=argparse.SUPPRESS)
     parser.add_argument("--iterations", type=int, default=argparse.SUPPRESS)
+    parser.add_argument("--episodes-per-iteration", type=int, default=argparse.SUPPRESS)
     parser.add_argument("--checkpoint-dir", default=argparse.SUPPRESS)
     parser.add_argument("--output", default=argparse.SUPPRESS)
     parser.add_argument("--train-batch-size", type=int, default=argparse.SUPPRESS)
@@ -65,6 +70,9 @@ def main() -> None:
     parser.add_argument("--num-epochs", type=int, default=argparse.SUPPRESS)
     parser.add_argument("--lr", type=float, default=argparse.SUPPRESS)
     parser.add_argument("--gamma", type=float, default=argparse.SUPPRESS)
+    parser.add_argument("--reward-cost-weight", type=float, default=argparse.SUPPRESS)
+    parser.add_argument("--final-battery-target", type=float, default=argparse.SUPPRESS)
+    parser.add_argument("--final-battery-penalty", type=float, default=argparse.SUPPRESS)
     parser.add_argument(
         "--num-env-runners",
         type=int,
@@ -106,6 +114,11 @@ def _run_exportable(args: argparse.Namespace) -> None:
         output=args.output,
         scenario_seed=args.scenario_seed,
         iterations=args.iterations if args.iterations is not None else 8,
+        train_batch_size=_train_batch_size(args),
+        minibatch_size=args.minibatch_size,
+        reward_cost_weight=args.reward_cost_weight,
+        final_battery_target=args.final_battery_target,
+        final_battery_penalty=args.final_battery_penalty,
         checkpoint_dir=args.checkpoint_dir,
         evaluation_scenarios=args.evaluate_scenario or [args.scenario],
     )
@@ -129,12 +142,15 @@ def _run_rllib(args: argparse.Namespace) -> None:
         checkpoint_dir=args.checkpoint_dir,
         evaluation_scenario_names=args.evaluate_scenario,
         fcnet_hiddens=fcnet_hiddens,
-        train_batch_size=args.train_batch_size,
+        train_batch_size=_train_batch_size(args),
         minibatch_size=args.minibatch_size,
         num_epochs=args.num_epochs,
         lr=args.lr,
         gamma=args.gamma,
         num_env_runners=args.num_env_runners,
+        reward_cost_weight=args.reward_cost_weight,
+        final_battery_target=args.final_battery_target,
+        final_battery_penalty=args.final_battery_penalty,
     )
 
 
@@ -168,6 +184,10 @@ def _load_config(path: str | Path) -> dict[str, Any]:
 def _validate_values(values: dict[str, Any]) -> None:
     if values["mode"] not in {"smoke", "experiment", "exportable"}:
         raise SystemExit("mode must be smoke, experiment, or exportable")
+    if values["episodes_per_iteration"] is not None:
+        if int(values["episodes_per_iteration"]) < 1:
+            raise SystemExit("episodes_per_iteration must be a positive integer")
+        values["episodes_per_iteration"] = int(values["episodes_per_iteration"])
     if values["observation_mode"] is not None:
         try:
             ObservationMode(values["observation_mode"])
@@ -182,6 +202,12 @@ def _validate_values(values: dict[str, Any]) -> None:
         isinstance(name, str) for name in values["evaluate_scenario"]
     ):
         raise SystemExit("evaluate_scenario must be a string or list of strings")
+
+
+def _train_batch_size(args: argparse.Namespace) -> int:
+    if args.episodes_per_iteration is None:
+        return args.train_batch_size
+    return args.episodes_per_iteration * 24
 
 
 def _parse_fcnet_hiddens_arg(value: object) -> list[int] | None:

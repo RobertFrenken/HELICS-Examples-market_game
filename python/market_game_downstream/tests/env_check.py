@@ -12,6 +12,7 @@ from python.market_game_downstream.rl.agents.policies import (
 )
 from python.market_game_downstream.rl.action_spaces import BatteryPosture
 from python.market_game_downstream.rl.envs.env import MarketGameEnv
+from python.market_game_downstream.rl.rewards import RewardConfig, market_game_reward
 
 
 def run_env_smoke_check() -> None:
@@ -47,6 +48,13 @@ def run_env_smoke_check() -> None:
 
     assert steps == 24, steps
     assert abs(total_reward + info["total_cost"]) < 1e-9
+    assert market_game_reward(own_cost=3.0, final_battery=0.0, terminated=False) == -3.0
+    assert market_game_reward(
+        own_cost=3.0,
+        final_battery=5.0,
+        terminated=True,
+        config=RewardConfig(final_battery_target=0.0, final_battery_penalty=2.0),
+    ) == -13.0
 
     obs_again, info_again = env.reset()
     assert len(obs_again) == len(OBSERVATION_SCHEMAS[ObservationMode.PRICE_HISTORY])

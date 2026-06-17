@@ -25,6 +25,11 @@ def train_exportable(
     output: str | Path,
     scenario_seed: int = 1,
     iterations: int = 8,
+    train_batch_size: int = 192,
+    minibatch_size: int = 64,
+    reward_cost_weight: float = 1.0,
+    final_battery_target: float | None = None,
+    final_battery_penalty: float = 0.0,
     checkpoint_dir: str | Path | None = None,
     evaluation_scenarios: list[str] | None = None,
 ) -> Path:
@@ -47,6 +52,11 @@ def train_exportable(
         checkpoint_dir=checkpoint_path.as_posix(),
         evaluation_scenario_names=evaluation_scenarios,
         fcnet_hiddens=list(profile.fcnet_hiddens),
+        train_batch_size=train_batch_size,
+        minibatch_size=minibatch_size,
+        reward_cost_weight=reward_cost_weight,
+        final_battery_target=final_battery_target,
+        final_battery_penalty=final_battery_penalty,
     )
     export_checkpoint(
         checkpoint_path,
@@ -95,6 +105,12 @@ def main() -> None:
     parser.add_argument("--scenario", default="week_1_baselines")
     parser.add_argument("--scenario-seed", type=int, default=1)
     parser.add_argument("--iterations", type=int, default=8)
+    parser.add_argument(
+        "--episodes-per-iteration",
+        type=int,
+        default=8,
+        help="24-hour market-game episodes collected per PPO iteration",
+    )
     parser.add_argument("--checkpoint-dir")
     parser.add_argument("--output", required=False, default="runs/rl_exportable/submission.py")
     parser.add_argument(
@@ -112,6 +128,8 @@ def main() -> None:
         output=args.output,
         scenario_seed=args.scenario_seed,
         iterations=args.iterations,
+        train_batch_size=args.episodes_per_iteration * 24,
+        minibatch_size=min(args.episodes_per_iteration * 24, 64),
         checkpoint_dir=args.checkpoint_dir,
         evaluation_scenarios=args.evaluate_scenario or [args.scenario],
     )
