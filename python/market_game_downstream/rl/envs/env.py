@@ -6,20 +6,21 @@ from dataclasses import dataclass, field
 
 from python.market_game_downstream.core import DEFAULT_CONFIG, MarketGameConfig
 from ..agents.observations import (
-    InferenceBelief,
     InferenceFeatures,
-    ObservationContext,
     ObservationMode,
     build_observation,
     update_inference_belief,
 )
+from ..agents.percepts import MarketPercept
 from ..agents.policies import FollowDemandPolicy
 from ..agents.callables import call_compute_demand, reset_policy
-from ..agents.actions import (
+from ..agents.action_spaces import (
     DEFAULT_ACTION_SPACE,
-    ActionMapper,
 )
+from ..agents.interfaces import LearnerActionSpace
 from ..training.rewards import RewardConfig, market_game_reward
+from ..agents.projectors import MarketActionProjector
+from ..agents.state import InferenceBeliefState
 from python.market_game_downstream.core import (
     BatteryState,
     HouseHourInput,
@@ -51,7 +52,7 @@ class EnvStepDiagnostics:
 class MarketGameEnv:
     """Single-agent RL environment embedded in a multi-house market.
 
-    The learning agent controls one house through an explicit action mapper.
+    The learning agent controls one house through an explicit learner action space.
     Opponents are ordinary ``HousePolicy`` instances. Observations are built
     only from legal local inputs, own action history, and delayed price history.
     Hidden aggregate values are exposed only through ``info`` diagnostics.
@@ -62,7 +63,7 @@ class MarketGameEnv:
         opponent_policies: list[HousePolicy] | None = None,
         config: MarketGameConfig = DEFAULT_CONFIG,
         observation_mode: ObservationMode | str = ObservationMode.PRICE_HISTORY,
-        action_space: ActionMapper = DEFAULT_ACTION_SPACE,
+        action_space: LearnerActionSpace = DEFAULT_ACTION_SPACE,
         reward_config: RewardConfig | None = None,
         final_battery_target: float | None = None,
         final_battery_penalty: float = 0.0,
@@ -75,6 +76,7 @@ class MarketGameEnv:
         )
         self.observation_mode = ObservationMode(observation_mode)
         self.action_space = action_space
+        self.action_projector = MarketActionProjector()
         self.reward_config = reward_config or RewardConfig(
             final_battery_target=final_battery_target,
             final_battery_penalty=final_battery_penalty,
@@ -88,7 +90,7 @@ class MarketGameEnv:
         self.records: list[HourRecord] = []
         self.own_battery = BatteryState(config.initial_battery, config)
         self.opponent_batteries: list[BatteryState] = []
-        self.inference_belief = InferenceBelief()
+        self.inference_belief = InferenceBeliefState()
         self.last_inference_features = InferenceFeatures()
 
     @property
@@ -124,11 +126,19 @@ class MarketGameEnv:
             raise RuntimeError("episode is already terminated; call reset()")
 
         base_demand = self.demand[self.hour]
-        own_proposed_load = self.action_space.market_load(
-            action,
-            base_demand,
-            self.own_battery.energy,
-            self.config,
+        learner_percept = MarketPercept(
+            price=self.current_price,
+            hour=self.hour,
+            battery_charge=self.own_battery.energy,
+            demand=self.demand,
+            price_history=self.price_history,
+            own_market_load_history=self.own_market_load_history,
+            house_count=self.house_count,
+            config=self.config,
+        )
+        own_proposed_load = self.action_projector.market_load(
+            self.action_space.decode(action, learner_percept),
+            learner_percept,
         )
         hour_inputs = [
             HouseHourInput(
@@ -209,13 +219,13 @@ class MarketGameEnv:
         if self.observation_mode != ObservationMode.INFERENCE:
             return
         self.last_inference_features = update_inference_belief(
-            self._make_context(),
+            self._make_percept(),
             self.inference_belief,
         )
 
-    def _make_context(self) -> ObservationContext:
+    def _make_percept(self) -> MarketPercept:
         hour = min(self.hour, self.config.episode_hours - 1)
-        return ObservationContext(
+        return MarketPercept(
             hour=hour,
             price=self.current_price,
             battery_charge=self.own_battery.energy,
@@ -229,7 +239,7 @@ class MarketGameEnv:
     def _make_observation(self) -> list[float]:
         return build_observation(
             self.observation_mode,
-            self._make_context(),
+            self._make_percept(),
             self.last_inference_features,
         )
 

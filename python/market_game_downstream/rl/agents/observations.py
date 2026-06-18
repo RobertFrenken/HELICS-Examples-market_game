@@ -3,10 +3,9 @@
 from __future__ import annotations
 
 import math
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from enum import Enum
 
-from python.market_game_downstream.core import DEFAULT_CONFIG, MarketGameConfig
 from .features import (
     distance_to_nearest_pricing_threshold,
     estimate_others_average_load,
@@ -14,6 +13,9 @@ from .features import (
     recent_mean,
     recent_volatility,
 )
+from .interfaces import AgentState, BaseFeatureExtractor
+from .percepts import MarketPercept
+from .state import InferenceBeliefState
 
 
 class ObservationMode(str, Enum):
@@ -54,34 +56,6 @@ OBSERVATION_SCHEMAS = {
 }
 
 
-@dataclass
-class ObservationContext:
-    """Legal information available to a house at one decision point."""
-
-    hour: int
-    price: float
-    battery_charge: float
-    demand: list[float]
-    price_history: list[float]
-    own_market_load_history: list[float]
-    house_count: int
-    config: MarketGameConfig = DEFAULT_CONFIG
-
-    @property
-    def base_demand(self) -> float:
-        return self.demand[self.hour]
-
-
-@dataclass
-class InferenceBelief:
-    """State carried between observations for aggregate inference features."""
-
-    crowd_battery: float = 0.0
-
-    def reset(self) -> None:
-        self.crowd_battery = 0.0
-
-
 @dataclass(frozen=True)
 class InferenceFeatures:
     inferred_average: float = 0.0
@@ -92,11 +66,52 @@ class InferenceFeatures:
     inverse_uncertainty: float = 0.0
 
 
+@dataclass(frozen=True)
+class LocalFeatureExtractor(BaseFeatureExtractor):
+    """Encode local legal market percept fields."""
+
+    def encode(self, percept: MarketPercept, state: AgentState) -> list[float]:
+        del state
+        return build_local_observation(percept)
+
+
+@dataclass(frozen=True)
+class PriceHistoryFeatureExtractor(BaseFeatureExtractor):
+    """Encode local fields plus recent legal price-history summaries."""
+
+    window: int = 6
+
+    def encode(self, percept: MarketPercept, state: AgentState) -> list[float]:
+        del state
+        return build_price_history_observation(percept, window=self.window)
+
+
+@dataclass
+class InferenceFeatureExtractor(BaseFeatureExtractor):
+    """Encode price history plus delayed aggregate-inference features."""
+
+    window: int = 6
+    last_features: InferenceFeatures = field(default_factory=InferenceFeatures)
+
+    def reset(self) -> None:
+        self.last_features = InferenceFeatures()
+
+    def encode(self, percept: MarketPercept, state: AgentState) -> list[float]:
+        if not isinstance(state, InferenceBeliefState):
+            raise TypeError("InferenceFeatureExtractor requires InferenceBeliefState")
+        self.last_features = update_inference_belief(percept, state)
+        return build_inference_observation(
+            percept,
+            self.last_features,
+            window=self.window,
+        )
+
+
 def observation_schema(mode: ObservationMode | str) -> list[str]:
     return list(OBSERVATION_SCHEMAS[ObservationMode(mode)])
 
 
-def build_local_observation(context: ObservationContext) -> list[float]:
+def build_local_observation(percept: MarketPercept) -> list[float]:
     """Build local-only legal features.
 
     Features:
@@ -107,22 +122,22 @@ def build_local_observation(context: ObservationContext) -> list[float]:
     ``own_battery_charge = B_t``
     ``own_base_demand_now = D_t``
     """
-    angle = 2.0 * math.pi * context.hour / context.config.episode_hours
+    angle = 2.0 * math.pi * percept.hour / percept.config.episode_hours
     return [
         math.sin(angle),
         math.cos(angle),
-        context.price,
-        context.battery_charge,
-        context.base_demand,
+        percept.price,
+        percept.battery_charge,
+        percept.base_demand,
     ]
 
 
-def build_price_history_observation(context: ObservationContext, window: int = 6) -> list[float]:
+def build_price_history_observation(percept: MarketPercept, window: int = 6) -> list[float]:
     """Build local features plus legal price-history summaries."""
-    previous_prices = context.price_history[:-1]
-    price_lag_1 = previous_prices[-1] if len(previous_prices) >= 1 else context.price
-    price_lag_2 = previous_prices[-2] if len(previous_prices) >= 2 else context.price
-    price_mean = recent_mean(previous_prices, fallback=context.price, window=window)
+    previous_prices = percept.price_history[:-1]
+    price_lag_1 = previous_prices[-1] if len(previous_prices) >= 1 else percept.price
+    price_lag_2 = previous_prices[-2] if len(previous_prices) >= 2 else percept.price
+    price_mean = recent_mean(previous_prices, fallback=percept.price, window=window)
     price_trend = (
         previous_prices[-1] - previous_prices[-2]
         if len(previous_prices) >= 2
@@ -130,7 +145,7 @@ def build_price_history_observation(context: ObservationContext, window: int = 6
     )
     price_volatility = recent_volatility(previous_prices, window=window)
 
-    return build_local_observation(context) + [
+    return build_local_observation(percept) + [
         price_lag_1,
         price_lag_2,
         price_mean,
@@ -140,12 +155,12 @@ def build_price_history_observation(context: ObservationContext, window: int = 6
 
 
 def build_inference_observation(
-    context: ObservationContext,
+    percept: MarketPercept,
     features: InferenceFeatures,
     window: int = 6,
 ) -> list[float]:
     """Build price-history features plus delayed aggregate inference features."""
-    return build_price_history_observation(context, window=window) + [
+    return build_price_history_observation(percept, window=window) + [
         features.inferred_average,
         features.inferred_others_average,
         features.inferred_crowd_delta,
@@ -156,29 +171,30 @@ def build_inference_observation(
 
 
 def update_inference_belief(
-    context: ObservationContext,
-    belief: InferenceBelief,
+    percept: MarketPercept,
+    belief: InferenceBeliefState,
 ) -> InferenceFeatures:
     """Update delayed aggregate belief and return inference features.
 
     This is intentionally separate from observation vector construction so the
     state mutation is explicit at the environment boundary.
     """
-    if context.hour <= 0 or not context.own_market_load_history:
+    own_market_load_history = percept.own_market_load_history or []
+    if percept.hour <= 0 or not own_market_load_history:
         return InferenceFeatures(crowd_battery=belief.crowd_battery)
 
-    inverse = invert_price_to_average_load(context.price)
+    inverse = invert_price_to_average_load(percept.price)
     inferred_average = inverse.estimate
-    previous_own_load = context.own_market_load_history[-1]
+    previous_own_load = own_market_load_history[-1]
     inferred_others_average = estimate_others_average_load(
         inferred_average,
         previous_own_load,
-        context.house_count,
+        percept.house_count,
     )
-    previous_base_demand = context.demand[context.hour - 1]
+    previous_base_demand = percept.demand[percept.hour - 1]
     inferred_crowd_delta = inferred_others_average - previous_base_demand
     belief.crowd_battery = min(
-        context.config.battery_capacity,
+        percept.config.battery_capacity,
         max(0.0, belief.crowd_battery + inferred_crowd_delta),
     )
 
@@ -194,14 +210,14 @@ def update_inference_belief(
 
 def build_observation(
     mode: ObservationMode | str,
-    context: ObservationContext,
+    percept: MarketPercept,
     inference_features: InferenceFeatures | None = None,
 ) -> list[float]:
     mode = ObservationMode(mode)
     if mode == ObservationMode.LOCAL:
-        return build_local_observation(context)
+        return build_local_observation(percept)
     if mode == ObservationMode.PRICE_HISTORY:
-        return build_price_history_observation(context)
+        return build_price_history_observation(percept)
     if inference_features is None:
         inference_features = InferenceFeatures()
-    return build_inference_observation(context, inference_features)
+    return build_inference_observation(percept, inference_features)

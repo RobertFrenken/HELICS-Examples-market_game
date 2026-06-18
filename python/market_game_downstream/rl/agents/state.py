@@ -22,3 +22,15 @@ class DictAgentState:
 
     def reset(self) -> None:
         self.values.clear()
+
+
+@dataclass
+class InferenceBeliefState:
+    """Belief state for delayed aggregate-load inference."""
+
+    own_load_history: list[float] = field(default_factory=list)
+    crowd_battery: float = 0.0
+
+    def reset(self) -> None:
+        self.own_load_history.clear()
+        self.crowd_battery = 0.0

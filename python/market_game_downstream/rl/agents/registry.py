@@ -5,58 +5,67 @@ from __future__ import annotations
 from collections.abc import Mapping
 from typing import Any
 
-from .actuators import (
-    ActionMapperActuator,
-    BatteryDeltaActuator,
-    ContinuousNormalizedDeltaActuator,
-    DirectLoadActuator,
-    IntegerBatteryDeltaActuator,
-)
-from .actions import DiscreteBatteryPostureActionSpace
 from .compose import MarketAgent
-from .controllers import FollowDemandController, PriceAwareController
-from .observers import InferenceObserver, LocalObserver, PriceHistoryObserver
-from .projectors import MarketActionProjector
-from .strategies import (
-    FollowDemandStrategy,
-    FullCycleStrategy,
-    PriceAwareStrategy,
-    RollingThresholdStrategy,
+from .controllers import (
+    BatteryDeltaDecoder,
+    BatteryPostureIndexDecoder,
+    FlattenDemandController,
+    FollowDemandController,
+    FullCycleController,
+    InvalidDemandController,
+    LegalInferenceController,
+    NoisyThresholdController,
+    NormalizedBatteryDeltaDecoder,
+    OscillatingController,
+    PriceAwareController,
+    RollingThresholdController,
+    TargetLoadDecoder,
+    TinyTanhController,
+    VolatilitySeekingController,
 )
-
-
-OBSERVER_TYPES = {
-    "local": LocalObserver,
-    "price_history": PriceHistoryObserver,
-    "inference": InferenceObserver,
-}
-
-STRATEGY_TYPES = {
-    "follow_demand": FollowDemandStrategy,
-    "full_cycle": FullCycleStrategy,
-    "price_aware": PriceAwareStrategy,
-    "rolling_threshold": RollingThresholdStrategy,
-}
+from .observations import (
+    InferenceFeatureExtractor,
+    LocalFeatureExtractor,
+    PriceHistoryFeatureExtractor,
+)
+from .projectors import MarketActionProjector
+from .state import DictAgentState, InferenceBeliefState, NoAgentState
 
 CONTROLLER_TYPES = {
+    "flatten_demand": FlattenDemandController,
     "follow_demand": FollowDemandController,
+    "full_cycle": FullCycleController,
+    "invalid_demand": InvalidDemandController,
+    "legal_inference": LegalInferenceController,
+    "noisy_threshold": NoisyThresholdController,
+    "oscillating": OscillatingController,
     "price_aware": PriceAwareController,
-}
-
-ACTUATOR_TYPES = {
-    "direct_load": DirectLoadActuator,
-    "battery_delta": BatteryDeltaActuator,
-    "battery_posture": lambda: ActionMapperActuator(DiscreteBatteryPostureActionSpace()),
-    "integer_battery_delta": lambda **kwargs: ActionMapperActuator(
-        IntegerBatteryDeltaActuator(**kwargs)
-    ),
-    "continuous_normalized_delta": lambda: ActionMapperActuator(
-        ContinuousNormalizedDeltaActuator()
-    ),
+    "rolling_threshold": RollingThresholdController,
+    "tiny_tanh": TinyTanhController,
+    "volatility_seeking": VolatilitySeekingController,
 }
 
 ACTION_PROJECTOR_TYPES = {
     "market_action": MarketActionProjector,
+}
+
+FEATURE_EXTRACTOR_TYPES = {
+    "local": LocalFeatureExtractor,
+    "price_history": PriceHistoryFeatureExtractor,
+    "inference": InferenceFeatureExtractor,
+}
+
+ACTION_DECODER_TYPES = {
+    "battery_delta": BatteryDeltaDecoder,
+    "battery_posture_index": BatteryPostureIndexDecoder,
+    "normalized_battery_delta": NormalizedBatteryDeltaDecoder,
+    "target_load": TargetLoadDecoder,
+}
+
+STATE_TYPES = {
+    "none": NoAgentState,
+    "dict": DictAgentState,
+    "inference_belief": InferenceBeliefState,
 }
 
 
@@ -67,29 +76,55 @@ def build_agent(config: Mapping[str, Any]) -> MarketAgent:
         raise TypeError("agent config must be a mapping")
 
     name = str(agent_config.get("name", "MarketAgent"))
-    if "controller" in agent_config:
-        controller = _build_component(agent_config, "controller", CONTROLLER_TYPES)
-        action_projector = _build_optional_component(
-            agent_config,
-            "action_projector",
-            ACTION_PROJECTOR_TYPES,
-            default=MarketActionProjector(),
-        )
-        return MarketAgent(
-            name=name,
-            controller=controller,
-            action_projector=action_projector,
-        )
-
-    observer = _build_component(agent_config, "observer", OBSERVER_TYPES)
-    strategy = _build_component(agent_config, "strategy", STRATEGY_TYPES)
-    actuator = _build_component(agent_config, "actuator", ACTUATOR_TYPES)
+    controller = _build_controller(agent_config)
+    action_projector = _build_optional_component(
+        agent_config,
+        "action_projector",
+        ACTION_PROJECTOR_TYPES,
+        default=MarketActionProjector(),
+    )
+    state = _build_optional_component(
+        agent_config,
+        "state",
+        STATE_TYPES,
+        default=NoAgentState(),
+    )
     return MarketAgent(
         name=name,
-        observer=observer,
-        strategy=strategy,
-        actuator=actuator,
+        controller=controller,
+        action_projector=action_projector,
+        state=state,
     )
+
+
+def _build_controller(agent_config: Mapping[str, Any]) -> Any:
+    raw_config = agent_config.get("controller")
+    if not isinstance(raw_config, Mapping):
+        raise ValueError("agent.controller must be a mapping")
+    type_name = raw_config.get("type")
+    if not isinstance(type_name, str):
+        raise ValueError("agent.controller.type must be a string")
+    try:
+        factory = CONTROLLER_TYPES[type_name]
+    except KeyError as exc:
+        choices = ", ".join(sorted(CONTROLLER_TYPES))
+        raise ValueError(
+            f"unknown agent.controller.type {type_name!r}; choices: {choices}"
+        ) from exc
+    kwargs = {name: value for name, value in raw_config.items() if name != "type"}
+    if "feature_extractor" in kwargs:
+        kwargs["feature_extractor"] = _build_nested_component(
+            kwargs["feature_extractor"],
+            "agent.controller.feature_extractor",
+            FEATURE_EXTRACTOR_TYPES,
+        )
+    if "action_decoder" in kwargs:
+        kwargs["action_decoder"] = _build_nested_component(
+            kwargs["action_decoder"],
+            "agent.controller.action_decoder",
+            ACTION_DECODER_TYPES,
+        )
+    return factory(**kwargs)
 
 
 def _build_optional_component(
@@ -101,6 +136,25 @@ def _build_optional_component(
     if key not in agent_config:
         return default
     return _build_component(agent_config, key, registry)
+
+
+def _build_nested_component(
+    raw_config: Any,
+    label: str,
+    registry: Mapping[str, Any],
+) -> Any:
+    if not isinstance(raw_config, Mapping):
+        raise ValueError(f"{label} must be a mapping")
+    type_name = raw_config.get("type")
+    if not isinstance(type_name, str):
+        raise ValueError(f"{label}.type must be a string")
+    try:
+        factory = registry[type_name]
+    except KeyError as exc:
+        choices = ", ".join(sorted(registry))
+        raise ValueError(f"unknown {label}.type {type_name!r}; choices: {choices}") from exc
+    kwargs = {name: value for name, value in raw_config.items() if name != "type"}
+    return factory(**kwargs)
 
 
 def _build_component(

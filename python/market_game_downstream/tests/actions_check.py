@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from python.market_game_downstream.rl.agents.actions import (
+from python.market_game_downstream.rl.agents.action_spaces import (
     ContinuousNormalizedDeltaActionSpace,
     DiscreteBatteryPostureActionSpace,
     IntegerBatteryDeltaActionSpace,

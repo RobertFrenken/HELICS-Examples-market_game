@@ -5,8 +5,8 @@ shared market-game simulator.
 
 Keep it small:
 
-- `agents/`: action mappings, hand-authored baseline policies, and legal
-  observation features.
+- `agents/`: percepts, semantic actions, controllers, action projectors,
+  learner action spaces, and legal observation features.
 - `envs/`: dependency-free environment, scenario builders, and the optional
   Gymnasium adapter.
 - `training/`: reward shaping, RLlib primitives, and the training CLI.
@@ -23,11 +23,16 @@ The agent refactor uses a controller-centered grammar:
 legal percept + state/belief -> controller -> semantic market action -> market load
 ```
 
-Preset `compute_demand(...)` houses remain supported, but new agent code should
-prefer `MarketAgent`, `MarketPercept`, controller classes, semantic market
-actions, and `MarketActionProjector`. RL policies fit as learned controllers:
-they may use feature extractors, neural models, and action decoders internally,
-while training algorithms and reward shaping stay in `training/`.
+Preset `compute_demand(...)` houses remain supported as simulator adapters over
+controllers. Agent code uses `MarketAgent`, `MarketPercept`, controller
+classes, semantic market actions, and `MarketActionProjector`. RL policies fit
+as learned controllers in `agents/controllers/learned.py`: they own feature
+extractors, vector models, and action decoders internally, while training
+algorithms and reward shaping stay in `training/`.
+
+Controllers that need memory receive it through `MarketAgent.state`. Inference
+controllers and inference feature extractors use `InferenceBeliefState`; static
+controllers use `NoAgentState`.
 
 See `agents/REFRACTOR.md` for the target end state and migration plan.
 

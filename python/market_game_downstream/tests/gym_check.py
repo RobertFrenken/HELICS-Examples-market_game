@@ -12,7 +12,7 @@ from python.market_game_downstream.rl.agents.policies import (
     FlattenDemandPolicy,
     PriceAwarePolicy,
 )
-from python.market_game_downstream.rl.agents.actions import (
+from python.market_game_downstream.rl.agents.action_spaces import (
     ContinuousNormalizedDeltaActionSpace,
     IntegerBatteryDeltaActionSpace,
 )

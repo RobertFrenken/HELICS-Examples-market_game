@@ -2,18 +2,19 @@
 
 from __future__ import annotations
 
-from typing import Protocol
+from abc import ABC, abstractmethod
+from typing import Generic, Protocol, TypeVar
 
-from python.market_game_downstream.core import DEFAULT_CONFIG, MarketGameConfig
-from .contexts import (
+from .actions import MarketAction
+from .experiences import (
     Experience,
-    InternalAction,
-    MarketContext,
-    MarketPercept,
     Observation,
     Transition,
 )
-from .market_actions import MarketAction
+from .percepts import MarketPercept
+
+
+ControllerActionT = TypeVar("ControllerActionT", bound=MarketAction, covariant=True)
 
 
 class AgentState(Protocol):
@@ -23,31 +24,18 @@ class AgentState(Protocol):
         """Reset episode-local state."""
 
 
-class Observer(Protocol):
-    """Convert legal market context into strategy-facing observations."""
-
-    def observe(self, context: MarketContext, state: AgentState) -> Observation:
-        """Return the observation for one decision point."""
-
-
-class Strategy(Protocol):
-    """Choose an internal action from an observation."""
-
-    def decide(self, observation: Observation, state: AgentState) -> InternalAction:
-        """Return a strategy-specific action."""
-
-
-class Actuator(Protocol):
-    """Project an internal action onto a legal market load."""
-
-    def market_load(self, action: InternalAction, context: MarketContext) -> float:
-        """Return the proposed market load for one decision point."""
-
-
-class Controller(Protocol):
+class Controller(Protocol[ControllerActionT]):
     """Map legal market percepts and agent state to semantic market actions."""
 
-    def decide(self, percept: MarketPercept, state: AgentState) -> MarketAction:
+    def decide(self, percept: MarketPercept, state: AgentState) -> ControllerActionT:
+        """Return the next semantic market action."""
+
+
+class BaseController(Generic[ControllerActionT], ABC):
+    """Generic base class for concrete market-game controllers."""
+
+    @abstractmethod
+    def decide(self, percept: MarketPercept, state: AgentState) -> ControllerActionT:
         """Return the next semantic market action."""
 
 
@@ -65,17 +53,19 @@ class FeatureExtractor(Protocol):
         """Return a numeric observation for a vector-based controller."""
 
 
-class ActionMapper(Protocol):
-    """Compatibility protocol for legacy RL action mappers."""
+class BaseFeatureExtractor(ABC):
+    """Generic base class for concrete vector feature extractors."""
 
-    def market_load(
-        self,
-        action: object,
-        base_demand: float,
-        battery_charge: float,
-        config: MarketGameConfig = DEFAULT_CONFIG,
-    ) -> float:
-        """Return the proposed market load for one learner action."""
+    @abstractmethod
+    def encode(self, percept: MarketPercept, state: AgentState) -> Observation:
+        """Return a numeric observation for a vector-based controller."""
+
+
+class LearnerActionSpace(Protocol):
+    """Decode learner actions into semantic market actions."""
+
+    def decode(self, action: object, percept: MarketPercept) -> MarketAction:
+        """Return the semantic market action represented by one learner action."""
 
 
 class Tunable(Protocol):
@@ -89,10 +79,10 @@ class Tunable(Protocol):
 
 
 class Trainable(Protocol):
-    """Optional capability for strategies that learn from transitions."""
+    """Optional capability for controllers that learn from vector transitions."""
 
     def update(self, transition: Transition) -> None:
-        """Update strategy state from one transition."""
+        """Update controller state from one transition."""
 
 
 class ExperienceLearner(Protocol):

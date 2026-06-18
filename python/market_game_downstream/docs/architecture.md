@@ -47,10 +47,19 @@ The old `market_game_downstream.helics` compatibility notes now live in
 `docs/helics_compatibility.md` and `docs/game_rules.md`; there is no downstream
 HELICS package.
 
-`market_game_downstream.rl.agents.actions` owns learner-action mappings. The
-simulator and exported submissions still see only market load values. Current
-adapters cover the coarse three-posture smoke baseline, integer battery deltas,
-and continuous normalized battery deltas.
+`market_game_downstream.rl.agents.actions` owns semantic market actions emitted
+by controllers. `market_game_downstream.rl.agents.action_spaces` owns learner
+action spaces for RL/Gym adapters. The simulator and exported submissions still
+see only market load values. Current learner action spaces cover the coarse
+three-posture smoke baseline, integer battery deltas, and continuous normalized
+battery deltas.
+
+Learned inference belongs in `market_game_downstream.rl.agents.controllers`.
+Those controllers own their feature extractor, vector model, and action decoder;
+RLlib, optimizers, reward shaping, and checkpoint management remain in
+`market_game_downstream.rl.training` and `market_game_downstream.rl.export`.
+Controller memory belongs in `market_game_downstream.rl.agents.state` and is
+passed through `MarketAgent.state`.
 
 ## Dependency Rule
 

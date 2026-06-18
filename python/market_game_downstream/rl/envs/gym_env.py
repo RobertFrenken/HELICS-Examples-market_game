@@ -12,13 +12,13 @@ from gymnasium import spaces
 from python.market_game_downstream.core import DEFAULT_CONFIG, MarketGameConfig
 from .env import MarketGameEnv, default_opponent_policies
 from ..training.rewards import RewardConfig
-from ..agents.actions import (
+from ..agents.action_spaces import (
     DEFAULT_ACTION_SPACE,
-    ActionMapper,
     ContinuousNormalizedDeltaActionSpace,
     DiscreteBatteryPostureActionSpace,
     IntegerBatteryDeltaActionSpace,
 )
+from ..agents.interfaces import LearnerActionSpace
 from ..agents.observations import ObservationMode, observation_schema
 from python.market_game_downstream.core import HousePolicy
 
@@ -69,7 +69,7 @@ class GymMarketGameEnv(gym.Env):
         opponent_policies: Sequence[HousePolicy] | None = None,
         config: MarketGameConfig = DEFAULT_CONFIG,
         observation_mode: ObservationMode | str = ObservationMode.PRICE_HISTORY,
-        action_space: ActionMapper = DEFAULT_ACTION_SPACE,
+        action_space: LearnerActionSpace = DEFAULT_ACTION_SPACE,
         reward_config: RewardConfig | None = None,
         final_battery_target: float | None = None,
         final_battery_penalty: float = 0.0,
@@ -117,27 +117,32 @@ class GymMarketGameEnv(gym.Env):
         return np.asarray(obs, dtype=np.float32)
 
 
-def gym_action_space(action_mapper: ActionMapper) -> spaces.Space:
-    if isinstance(action_mapper, DiscreteBatteryPostureActionSpace):
+def gym_action_space(learner_action_space: LearnerActionSpace) -> spaces.Space:
+    if isinstance(learner_action_space, DiscreteBatteryPostureActionSpace):
         return spaces.Discrete(3)
-    if isinstance(action_mapper, IntegerBatteryDeltaActionSpace):
+    if isinstance(learner_action_space, IntegerBatteryDeltaActionSpace):
         return spaces.Discrete(
-            action_mapper.max_delta - action_mapper.min_delta + 1,
-            start=action_mapper.min_delta,
+            learner_action_space.max_delta - learner_action_space.min_delta + 1,
+            start=learner_action_space.min_delta,
         )
-    if isinstance(action_mapper, ContinuousNormalizedDeltaActionSpace):
+    if isinstance(learner_action_space, ContinuousNormalizedDeltaActionSpace):
         return spaces.Box(low=-1.0, high=1.0, shape=(), dtype=np.float32)
-    raise TypeError(f"unsupported Gym action mapper {type(action_mapper).__name__}")
+    raise TypeError(
+        f"unsupported Gym learner action space {type(learner_action_space).__name__}"
+    )
 
 
-def _normalize_gym_action(action: object, action_mapper: ActionMapper) -> object:
-    if isinstance(action_mapper, ContinuousNormalizedDeltaActionSpace):
+def _normalize_gym_action(
+    action: object,
+    learner_action_space: LearnerActionSpace,
+) -> object:
+    if isinstance(learner_action_space, ContinuousNormalizedDeltaActionSpace):
         return float(np.asarray(action, dtype=np.float32).item())
     try:
         action_value = int(action)
     except (TypeError, ValueError) as exc:
         raise ValueError(f"invalid Gym action {action!r}") from exc
-    if isinstance(action_mapper, DiscreteBatteryPostureActionSpace):
+    if isinstance(learner_action_space, DiscreteBatteryPostureActionSpace):
         if action_value not in (0, 1, 2):
             raise ValueError(f"invalid Gym action {action!r}; expected 0, 1, or 2")
         return action_value - 1

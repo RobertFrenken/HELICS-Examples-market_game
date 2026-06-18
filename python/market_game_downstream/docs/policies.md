@@ -1,7 +1,8 @@
 # Market Game Policy Reference
 
 These policies are local baselines and opponents for the pure simulator. They
-all implement the competition-shaped interface:
+are thin `compute_demand(...)` adapters over controller classes and implement
+the competition-shaped interface:
 
 ```python
 compute_demand(price, hour, battery_charge, demand, price_history)
@@ -12,7 +13,7 @@ own battery charge, the demand profile, and price history.
 
 ## Baselines
 
-| Policy | Strategy | Main use |
+| Policy | Controller behavior | Main use |
 |---|---|---|
 | `FollowDemandPolicy` | Submits `demand[hour]` and never uses the battery. | Passive reference baseline. |
 | `FlattenDemandPolicy` | Charges during below-average base demand and discharges during above-average demand. | Price-blind load-shaping baseline. |
@@ -23,7 +24,7 @@ own battery charge, the demand profile, and price history.
 
 ## Robustness Opponents
 
-| Policy | Strategy | Main use |
+| Policy | Controller behavior | Main use |
 |---|---|---|
 | `NoisyThresholdPolicy` | Applies seeded jitter to cheap and expensive price thresholds. | Repeatable stochastic opponent. |
 | `OscillatingPolicy` | Alternates charge/discharge pressure using a sinusoidal pattern, ignoring price. | Structured non-rational load swings. |
