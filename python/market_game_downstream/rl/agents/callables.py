@@ -1,4 +1,4 @@
-"""Small adapters around the official ``compute_demand(...)`` policy shape."""
+"""Adapters around the official ``compute_demand(...)`` policy shape."""
 
 from __future__ import annotations
 

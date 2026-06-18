@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from python.market_game_downstream.core import run_episode
-from python.market_game_downstream.rl.scenarios import stock_example_scenario
+from python.market_game_downstream.rl.envs.scenarios import stock_example_scenario
 
 
 EXPECTED_STOCK = {

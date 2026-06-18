@@ -14,12 +14,12 @@ from ..agents.observations import (
     update_inference_belief,
 )
 from ..agents.policies import FollowDemandPolicy
-from ..policy_callables import call_compute_demand, reset_policy
-from ..action_spaces import (
+from ..agents.callables import call_compute_demand, reset_policy
+from ..agents.actions import (
     DEFAULT_ACTION_SPACE,
     ActionMapper,
 )
-from ..rewards import RewardConfig, market_game_reward
+from ..training.rewards import RewardConfig, market_game_reward
 from python.market_game_downstream.core import (
     BatteryState,
     HouseHourInput,

@@ -8,9 +8,18 @@ import tomllib
 from typing import Any
 
 from python.market_game_downstream.rl.agents.observations import ObservationMode
-from python.market_game_downstream.rl.scenarios import format_scenario_choices
-from python.market_game_downstream.rl.training.train_exportable import train_exportable
-from python.market_game_downstream.rl.training.train_rllib import (
+from python.market_game_downstream.rl.envs.scenarios import format_scenario_choices
+from python.market_game_downstream.rl.evaluate import (
+    CSV_COLUMNS,
+    evaluate_scenario,
+    scenario_by_name,
+    submitted_function_policy_factory,
+    weekly_training_scenarios,
+)
+from python.market_game_downstream.rl.export.export_rllib_checkpoint import export_checkpoint
+from python.market_game_downstream.rl.export.profiles import EXPORTABLE_PPO_PROFILE
+from python.market_game_downstream.rl.export.validators import validate_submission_file
+from python.market_game_downstream.rl.training.rllib import (
     _parse_fcnet_hiddens,
     train,
 )
@@ -122,6 +131,80 @@ def _run_exportable(args: argparse.Namespace) -> None:
         checkpoint_dir=args.checkpoint_dir,
         evaluation_scenarios=args.evaluate_scenario or [args.scenario],
     )
+
+
+def train_exportable(
+    *,
+    scenario: str,
+    output: str | Path,
+    scenario_seed: int = 1,
+    iterations: int = 8,
+    train_batch_size: int = 192,
+    minibatch_size: int = 64,
+    reward_cost_weight: float = 1.0,
+    final_battery_target: float | None = None,
+    final_battery_penalty: float = 0.0,
+    checkpoint_dir: str | Path | None = None,
+    evaluation_scenarios: list[str] | None = None,
+) -> Path:
+    """Train, export, validate, and evaluate a competition-compatible PPO policy."""
+    profile = EXPORTABLE_PPO_PROFILE
+    profile.validate()
+    output_path = Path(output).resolve()
+    checkpoint_path = (
+        Path(checkpoint_dir).resolve()
+        if checkpoint_dir is not None
+        else output_path.parent / f"{output_path.stem}_checkpoint"
+    )
+    evaluation_scenarios = evaluation_scenarios or [scenario]
+
+    train(
+        iterations=iterations,
+        observation_mode=profile.observation_mode,
+        scenario=scenario,
+        scenario_seed=scenario_seed,
+        checkpoint_dir=checkpoint_path.as_posix(),
+        evaluation_scenario_names=evaluation_scenarios,
+        fcnet_hiddens=list(profile.fcnet_hiddens),
+        train_batch_size=train_batch_size,
+        minibatch_size=minibatch_size,
+        reward_cost_weight=reward_cost_weight,
+        final_battery_target=final_battery_target,
+        final_battery_penalty=final_battery_penalty,
+    )
+    export_checkpoint(
+        checkpoint_path,
+        output_path,
+        scenario=scenario,
+        scenario_seed=scenario_seed,
+        profile=profile,
+    )
+    report = validate_submission_file(output_path)
+    print(
+        "validation="
+        f"hours:{report.hours},clamps:{report.clamps},"
+        f"boundary_warnings:{len(report.boundary_warnings)},"
+        f"source_bytes:{output_path.stat().st_size}"
+    )
+    _print_submission_evaluation(output_path, evaluation_scenarios, scenario_seed)
+    print(f"submission={output_path}")
+    print(f"checkpoint={checkpoint_path}")
+    return output_path
+
+
+def _print_submission_evaluation(
+    output_path: Path,
+    scenario_names: list[str],
+    seed: int,
+) -> None:
+    scenarios = weekly_training_scenarios(seed=seed)
+    factory = submitted_function_policy_factory(output_path)
+    print(",".join(CSV_COLUMNS))
+    for name in scenario_names:
+        scenario = scenario_by_name(name, scenarios).with_policy_factory(factory, first=True)
+        for row in evaluate_scenario(scenario):
+            if row["agent"] == "SubmittedHouse":
+                print(",".join(row[column] for column in CSV_COLUMNS))
 
 
 def _run_rllib(args: argparse.Namespace) -> None:

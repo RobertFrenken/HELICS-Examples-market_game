@@ -11,8 +11,8 @@ from gymnasium import spaces
 
 from python.market_game_downstream.core import DEFAULT_CONFIG, MarketGameConfig
 from .env import MarketGameEnv, default_opponent_policies
-from ..rewards import RewardConfig
-from ..action_spaces import (
+from ..training.rewards import RewardConfig
+from ..agents.actions import (
     DEFAULT_ACTION_SPACE,
     ActionMapper,
     ContinuousNormalizedDeltaActionSpace,

@@ -4,16 +4,24 @@ from __future__ import annotations
 
 import argparse
 import csv
+from pathlib import Path
 import sys
 
+from python.market_game_downstream.core import (
+    HourRecord,
+    HousePolicy,
+    SimulationResult,
+    run_scenario,
+)
+
+from .export.export_policy import FunctionSubmissionPolicy
 from .export.validators import SubmissionValidationError, validate_submission_file
-from .scenarios import (
+from .envs.scenarios import (
     CompetitionScenario,
-    evaluate_scenario,
+    PolicyFactory,
     format_scenario_choices,
     scenario_by_name,
     stock_example_scenario,
-    submitted_function_policy_factory,
     weekly_training_scenarios,
 )
 
@@ -54,6 +62,80 @@ def write_rows(rows: list[dict[str, str]]) -> None:
     writer = csv.DictWriter(sys.stdout, fieldnames=CSV_COLUMNS, extrasaction="ignore")
     writer.writeheader()
     writer.writerows(rows)
+
+
+def evaluate_scenario(scenario: CompetitionScenario) -> list[dict[str, str]]:
+    result = run_scenario(scenario.to_market_scenario())
+    volatility = result_price_volatility(result)
+    return [
+        _summary_row(scenario, house, result.records, volatility)
+        for house in result.houses
+    ]
+
+
+def evaluate_curriculum(seed: int = 1) -> list[dict[str, str]]:
+    return [
+        row
+        for scenario in weekly_training_scenarios(seed=seed)
+        for row in evaluate_scenario(scenario)
+    ]
+
+
+def submitted_function_policy_factory(
+    path: str | Path,
+    name: str = "SubmittedHouse",
+) -> PolicyFactory:
+    if not isinstance(name, str) or not name:
+        raise ValueError("submitted function policy name must be a non-empty string")
+    submission_path = Path(path)
+
+    def factory(path: Path = submission_path, name: str = name) -> HousePolicy:
+        from .export.validators import load_compute_demand
+
+        return FunctionSubmissionPolicy(load_compute_demand(path), name=name)
+
+    return factory
+
+
+def price_volatility(prices: list[float]) -> float:
+    """Sum absolute hour-to-hour price movements."""
+    if len(prices) < 2:
+        return 0.0
+    return sum(abs(prices[index] - prices[index - 1]) for index in range(1, len(prices)))
+
+
+def result_price_volatility(result: SimulationResult) -> float:
+    return price_volatility(result.price_history)
+
+
+def _summary_row(
+    scenario: CompetitionScenario,
+    house: object,
+    records: list[HourRecord],
+    volatility: float,
+) -> dict[str, str]:
+    penalty_cost = sum(
+        record.penalties_by_house.get(house.policy.name, 0.0)
+        for record in records
+    )
+    invalid_load_adjustment = sum(
+        record.invalid_load_adjustments_by_house.get(house.policy.name, 0.0)
+        for record in records
+    )
+    return {
+        "scenario": scenario.name,
+        "agent": house.policy.name,
+        "profile_type": scenario.profile_type,
+        "seed": str(scenario.seed),
+        "total_load": f"{house.total_load:.10f}",
+        "total_cost": f"{house.total_cost:.10f}",
+        "final_battery": f"{house.battery.energy:.10f}",
+        "boundary_warnings": str(len(house.boundary_warnings)),
+        "clamps": str(house.clamps),
+        "invalid_load_adjustment": f"{invalid_load_adjustment:.10f}",
+        "penalty_cost": f"{penalty_cost:.10f}",
+        "price_volatility": f"{volatility:.10f}",
+    }
 
 
 def _rows_for_seed(args: argparse.Namespace, seed: int) -> list[dict[str, str]]:

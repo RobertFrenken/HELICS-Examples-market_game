@@ -47,7 +47,7 @@ The old `market_game_downstream.helics` compatibility notes now live in
 `docs/helics_compatibility.md` and `docs/game_rules.md`; there is no downstream
 HELICS package.
 
-`market_game_downstream.rl.action_spaces` owns learner-action mappings. The
+`market_game_downstream.rl.agents.actions` owns learner-action mappings. The
 simulator and exported submissions still see only market load values. Current
 adapters cover the coarse three-posture smoke baseline, integer battery deltas,
 and continuous normalized battery deltas.

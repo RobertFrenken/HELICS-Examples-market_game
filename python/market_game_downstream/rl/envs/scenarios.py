@@ -1,23 +1,19 @@
-"""Built-in RL scenarios and CSV-friendly evaluation."""
+"""Built-in market-game scenarios for RL environments."""
 
 from __future__ import annotations
 
 from collections.abc import Callable
 from dataclasses import dataclass, field, replace
 import random
-from pathlib import Path
 
 from python.market_game_downstream.core import (
     DEFAULT_CONFIG,
-    HourRecord,
     HousePolicy,
     MarketGameConfig,
     MarketScenario,
     demand_profile,
-    run_scenario,
 )
-from python.market_game_downstream.rl.metrics import result_price_volatility
-from .agents.policies import (
+from python.market_game_downstream.rl.agents.policies import (
     FlattenDemandPolicy,
     FollowDemandPolicy,
     FullCyclePolicy,
@@ -159,72 +155,6 @@ def scenario_by_name(
     except KeyError as exc:
         choices = ", ".join(scenarios_by_name)
         raise ValueError(f"unknown scenario {name!r}; choices: {choices}") from exc
-
-
-def submitted_function_policy_factory(
-    path: str | Path,
-    name: str = "SubmittedHouse",
-) -> PolicyFactory:
-    if not isinstance(name, str) or not name:
-        raise ValueError("submitted function policy name must be a non-empty string")
-    submission_path = Path(path)
-
-    def factory(path: Path = submission_path, name: str = name) -> HousePolicy:
-        from python.market_game_downstream.rl.export.export_policy import (
-            FunctionSubmissionPolicy,
-        )
-        from python.market_game_downstream.rl.export.validators import load_compute_demand
-
-        return FunctionSubmissionPolicy(load_compute_demand(path), name=name)
-
-    return factory
-
-
-def evaluate_scenario(scenario: CompetitionScenario) -> list[dict[str, str]]:
-    result = run_scenario(scenario.to_market_scenario())
-    volatility = result_price_volatility(result)
-    return [
-        _summary_row(scenario, house, result.records, volatility)
-        for house in result.houses
-    ]
-
-
-def evaluate_curriculum(seed: int = 1) -> list[dict[str, str]]:
-    return [
-        row
-        for scenario in weekly_training_scenarios(seed=seed)
-        for row in evaluate_scenario(scenario)
-    ]
-
-
-def _summary_row(
-    scenario: CompetitionScenario,
-    house: object,
-    records: list[HourRecord],
-    price_volatility: float,
-) -> dict[str, str]:
-    penalty_cost = sum(
-        record.penalties_by_house.get(house.policy.name, 0.0)
-        for record in records
-    )
-    invalid_load_adjustment = sum(
-        record.invalid_load_adjustments_by_house.get(house.policy.name, 0.0)
-        for record in records
-    )
-    return {
-        "scenario": scenario.name,
-        "agent": house.policy.name,
-        "profile_type": scenario.profile_type,
-        "seed": str(scenario.seed),
-        "total_load": f"{house.total_load:.10f}",
-        "total_cost": f"{house.total_cost:.10f}",
-        "final_battery": f"{house.battery.energy:.10f}",
-        "boundary_warnings": str(len(house.boundary_warnings)),
-        "clamps": str(house.clamps),
-        "invalid_load_adjustment": f"{invalid_load_adjustment:.10f}",
-        "penalty_cost": f"{penalty_cost:.10f}",
-        "price_volatility": f"{price_volatility:.10f}",
-    }
 
 
 def _validate_unique_policy_names(

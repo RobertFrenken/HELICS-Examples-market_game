@@ -79,8 +79,8 @@ def downstream_policy_compute_demand(policy_type: str, kwargs_json: str) -> Comp
     if str(repo_root) not in sys.path:
         sys.path.insert(0, str(repo_root))
 
-    from python.market_game_downstream.rl.policy_callables import policy_to_compute_demand
-    from python.market_game_downstream.rl.scenarios import POLICY_TYPES
+    from python.market_game_downstream.rl.agents.policies import POLICY_TYPES
+    from python.market_game_downstream.rl.agents.callables import policy_to_compute_demand
 
     try:
         policy_class = POLICY_TYPES[policy_type]

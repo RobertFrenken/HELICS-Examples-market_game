@@ -7,6 +7,8 @@ import math
 import random
 
 from python.market_game_downstream.core import DEFAULT_CONFIG
+from .compose import MarketAgent
+from .controllers import FollowDemandController, PriceAwareController
 from .features import (
     distance_to_nearest_pricing_threshold,
     estimate_others_average_load,
@@ -25,9 +27,16 @@ class FollowDemandPolicy:
     """Passive baseline that submits the base demand profile exactly."""
 
     name: str = "FollowDemandHouse"
+    _agent: MarketAgent = field(init=False, repr=False)
+
+    def __post_init__(self) -> None:
+        self._agent = MarketAgent(
+            name=self.name,
+            controller=FollowDemandController(),
+        )
 
     def reset(self) -> None:
-        pass
+        self._agent.reset()
 
     def compute_demand(
         self,
@@ -37,8 +46,13 @@ class FollowDemandPolicy:
         demand: list[float],
         price_history: list[float],
     ) -> float:
-        del price, battery_charge, price_history
-        return demand[hour]
+        return self._agent.compute_demand(
+            price,
+            hour,
+            battery_charge,
+            demand,
+            price_history,
+        )
 
 
 @dataclass
@@ -131,18 +145,19 @@ class PriceAwarePolicy:
     """Threshold policy with simple price bands and time-of-day reserves."""
 
     name: str = "PriceAwareHouse"
+    _agent: MarketAgent = field(init=False, repr=False)
+
+    def __post_init__(self) -> None:
+        self._agent = MarketAgent(
+            name=self.name,
+            controller=PriceAwareController(),
+        )
 
     def reset(self) -> None:
-        pass
+        self._agent.reset()
 
     def reserve_target(self, hour: int) -> float:
-        if hour < 12:
-            return 4.0
-        if hour < 18:
-            return 8.0
-        if hour < 21:
-            return 3.0
-        return 0.0
+        return PriceAwareController().reserve_target(hour)
 
     def compute_demand(
         self,
@@ -152,34 +167,13 @@ class PriceAwarePolicy:
         demand: list[float],
         price_history: list[float],
     ) -> float:
-        del price_history
-
-        base_demand = demand[hour]
-        remaining_capacity = BATTERY_CAPACITY - battery_charge
-        reserve = self.reserve_target(hour)
-        available_discharge = max(0.0, battery_charge - reserve)
-
-        if price <= 0.12:
-            charge_amount = min(BATTERY_MAX_CHARGE, remaining_capacity)
-            return base_demand + charge_amount
-
-        if price <= 0.19 and battery_charge < reserve:
-            charge_amount = min(BATTERY_MAX_CHARGE, remaining_capacity, reserve - battery_charge)
-            return base_demand + charge_amount
-
-        if price >= 0.49:
-            discharge_amount = min(BATTERY_MAX_DISCHARGE, battery_charge)
-            return base_demand - discharge_amount
-
-        if price >= 0.25 and available_discharge > 0.0:
-            discharge_amount = min(BATTERY_MAX_DISCHARGE, available_discharge)
-            return base_demand - discharge_amount
-
-        if hour >= 21 and battery_charge > 0.0:
-            discharge_amount = min(BATTERY_MAX_DISCHARGE, battery_charge)
-            return base_demand - discharge_amount
-
-        return base_demand
+        return self._agent.compute_demand(
+            price,
+            hour,
+            battery_charge,
+            demand,
+            price_history,
+        )
 
 
 @dataclass
@@ -427,3 +421,17 @@ class VolatilitySeekingPolicy:
             return base_demand - min(BATTERY_MAX_DISCHARGE, battery_charge)
 
         return base_demand
+
+
+POLICY_TYPES = {
+    "FlattenDemandPolicy": FlattenDemandPolicy,
+    "FollowDemandPolicy": FollowDemandPolicy,
+    "FullCyclePolicy": FullCyclePolicy,
+    "InvalidDemandPolicy": InvalidDemandPolicy,
+    "LegalInferencePolicy": LegalInferencePolicy,
+    "NoisyThresholdPolicy": NoisyThresholdPolicy,
+    "OscillatingPolicy": OscillatingPolicy,
+    "PriceAwarePolicy": PriceAwarePolicy,
+    "RollingPricePolicy": RollingPricePolicy,
+    "VolatilitySeekingPolicy": VolatilitySeekingPolicy,
+}

@@ -6,10 +6,13 @@ import argparse
 from pathlib import Path
 
 from python.market_game_downstream.core import run_scenario
-from python.market_game_downstream.rl.evaluate import _parse_seed_list, rows_for_args
-from python.market_game_downstream.rl.scenarios import (
-    CompetitionScenario,
+from python.market_game_downstream.rl.evaluate import (
+    _parse_seed_list,
     evaluate_scenario,
+    rows_for_args,
+)
+from python.market_game_downstream.rl.envs.scenarios import (
+    CompetitionScenario,
     stock_example_scenario,
     weekly_training_scenarios,
 )

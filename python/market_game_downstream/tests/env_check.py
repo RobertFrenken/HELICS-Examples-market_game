@@ -10,9 +10,9 @@ from python.market_game_downstream.rl.agents.policies import (
     FlattenDemandPolicy,
     PriceAwarePolicy,
 )
-from python.market_game_downstream.rl.action_spaces import BatteryPosture
+from python.market_game_downstream.rl.agents.actions import BatteryPosture
 from python.market_game_downstream.rl.envs.env import MarketGameEnv
-from python.market_game_downstream.rl.rewards import RewardConfig, market_game_reward
+from python.market_game_downstream.rl.training.rewards import RewardConfig, market_game_reward
 
 
 def run_env_smoke_check() -> None:

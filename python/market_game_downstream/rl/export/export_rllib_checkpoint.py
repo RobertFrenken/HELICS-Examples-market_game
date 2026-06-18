@@ -12,11 +12,11 @@ import ray
 from ray.tune.registry import register_env
 
 from python.market_game_downstream.rl.agents.observations import ObservationMode
-from python.market_game_downstream.rl.export_profiles import (
+from python.market_game_downstream.rl.export.profiles import (
     EXPORTABLE_PPO_PROFILE,
     ExportProfile,
 )
-from python.market_game_downstream.rl.training.train_rllib import (
+from python.market_game_downstream.rl.training.rllib import (
     ENV_NAME,
     build_ppo_config,
     make_env,

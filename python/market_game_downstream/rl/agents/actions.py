@@ -1,41 +1,21 @@
-"""RL action-space adapters for the market-game simulator.
+"""Compatibility action mappers for market-game agents.
 
 The game and submission ABI is always a finite market load. These adapters are
-only RL conveniences that map learner actions onto that market-load contract.
+small conveniences that map strategy or learner actions onto that market-load
+contract.
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass
-from enum import IntEnum
-from typing import Protocol
 
 from python.market_game_downstream.core.config import DEFAULT_CONFIG, MarketGameConfig
 from python.market_game_downstream.core.rules import (
     battery_delta_to_market_load,
     normalized_delta_to_market_load,
 )
-
-
-class ActionMapper(Protocol):
-    """Map an RL action to a proposed market load for the current hour."""
-
-    def market_load(
-        self,
-        action: object,
-        base_demand: float,
-        battery_charge: float,
-        config: MarketGameConfig = DEFAULT_CONFIG,
-    ) -> float:
-        """Return the proposed market load for one learner action."""
-
-
-class BatteryPosture(IntEnum):
-    """Coarse starter action: max discharge, neutral, or max charge."""
-
-    DISCHARGE = -1
-    NEUTRAL = 0
-    CHARGE = 1
+from .interfaces import ActionMapper
+from .market_actions import BatteryPosture
 
 
 @dataclass(frozen=True)

@@ -1,8 +1,7 @@
-"""Minimal Ray RLlib training entry point for the market-game environment."""
+"""Ray RLlib training primitives for the market-game environment."""
 
 from __future__ import annotations
 
-import argparse
 import logging
 import os
 from pathlib import Path
@@ -19,8 +18,8 @@ from python.market_game_downstream.core import DEFAULT_CONFIG
 from ..envs.gym_env import GymMarketGameEnv
 from ..agents.observations import ObservationMode
 from ..agents.policies import FlattenDemandPolicy, PriceAwarePolicy
-from ..rewards import RewardConfig
-from ..scenarios import format_scenario_choices, scenario_by_name, weekly_training_scenarios
+from .rewards import RewardConfig
+from ..envs.scenarios import scenario_by_name, weekly_training_scenarios
 
 
 ENV_NAME = "market_game_downstream.rl"
@@ -286,78 +285,6 @@ def train(
     return results
 
 
-def main() -> None:
-    parser = argparse.ArgumentParser(description="train PPO with Ray RLlib on the market-game env")
-    parser.add_argument(
-        "--list-scenarios",
-        action="store_true",
-        help="print built-in scenario IDs and exit",
-    )
-    parser.add_argument("--iterations", type=int, default=1)
-    parser.add_argument("--train-batch-size", type=int, default=192)
-    parser.add_argument("--minibatch-size", type=int, default=64)
-    parser.add_argument("--num-epochs", type=int, default=2)
-    parser.add_argument("--lr", type=float, default=3e-4)
-    parser.add_argument("--gamma", type=float, default=0.99)
-    parser.add_argument(
-        "--num-env-runners",
-        type=int,
-        default=0,
-        help="parallel RLlib env runners; keep 0 for local smoke tests",
-    )
-    parser.add_argument(
-        "--observation-mode",
-        choices=[mode.value for mode in ObservationMode],
-        default=None,
-        help="override scenario-declared training observation mode",
-    )
-    parser.add_argument(
-        "--scenario",
-        help="named scenario from the scenario config to train against",
-    )
-    parser.add_argument(
-        "--scenario-seed",
-        type=int,
-        help="seed override for generated scenario demand profiles and stochastic opponents",
-    )
-    parser.add_argument(
-        "--checkpoint-dir",
-        help="directory where RLlib should save a checkpoint after training",
-    )
-    parser.add_argument(
-        "--fcnet-hiddens",
-        help=(
-            "comma-separated actor hidden layer sizes; use a small value like "
-            "8 for standalone export"
-        ),
-    )
-    parser.add_argument(
-        "--evaluate-scenario",
-        action="append",
-        default=[],
-        help="named scenario to evaluate after training; may be provided more than once",
-    )
-    args = parser.parse_args()
-    if args.list_scenarios:
-        print(format_scenario_choices(seed=args.scenario_seed or 1))
-        return
-    train(
-        iterations=args.iterations,
-        observation_mode=args.observation_mode,
-        scenario=args.scenario,
-        scenario_seed=args.scenario_seed,
-        checkpoint_dir=args.checkpoint_dir,
-        evaluation_scenario_names=args.evaluate_scenario,
-        fcnet_hiddens=_parse_fcnet_hiddens(args.fcnet_hiddens),
-        train_batch_size=args.train_batch_size,
-        minibatch_size=args.minibatch_size,
-        num_epochs=args.num_epochs,
-        lr=args.lr,
-        gamma=args.gamma,
-        num_env_runners=args.num_env_runners,
-    )
-
-
 def _parse_fcnet_hiddens(value: str | None) -> list[int] | None:
     if value is None:
         return None
@@ -365,7 +292,3 @@ def _parse_fcnet_hiddens(value: str | None) -> list[int] | None:
     if not hiddens or any(hidden < 1 for hidden in hiddens):
         raise ValueError("--fcnet-hiddens must contain positive integers")
     return hiddens
-
-
-if __name__ == "__main__":
-    main()

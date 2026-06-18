@@ -1,8 +1,8 @@
-"""Checks for downstream RL action-space adapters."""
+"""Checks for downstream RL action adapters."""
 
 from __future__ import annotations
 
-from python.market_game_downstream.rl.action_spaces import (
+from python.market_game_downstream.rl.agents.actions import (
     ContinuousNormalizedDeltaActionSpace,
     DiscreteBatteryPostureActionSpace,
     IntegerBatteryDeltaActionSpace,
@@ -10,7 +10,7 @@ from python.market_game_downstream.rl.action_spaces import (
 from python.market_game_downstream.rl.envs.env import MarketGameEnv
 
 
-def run_action_spaces_check() -> None:
+def run_actions_check() -> None:
     posture = DiscreteBatteryPostureActionSpace()
     assert posture.market_load(-1, 12.0, 20.0) == 2.0
     assert posture.market_load(0, 12.0, 20.0) == 12.0
@@ -40,5 +40,5 @@ def run_action_spaces_check() -> None:
 
 
 if __name__ == "__main__":
-    run_action_spaces_check()
-    print("action spaces: ok")
+    run_actions_check()
+    print("actions: ok")

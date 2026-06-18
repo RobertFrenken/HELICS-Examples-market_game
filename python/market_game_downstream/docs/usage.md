@@ -32,10 +32,11 @@ python3 -m python.market_game_downstream.rl.evaluate \
 Train with RLlib:
 
 ```bash
-python3 -m python.market_game_downstream.rl.training.train_rllib \
+python3 -m python.market_game_downstream.rl.training.train \
+  --mode experiment \
   --scenario week_1_baselines
 ```
 
 Shared rule code lives in `python.market_game_downstream.core`. Built-in RL
-scenarios live in `python.market_game_downstream.rl.scenarios`; add custom
-experiments there or construct `CompetitionScenario` objects in Python.
+scenarios live in `python.market_game_downstream.rl.envs.scenarios`; add
+custom experiments there or construct `CompetitionScenario` objects in Python.

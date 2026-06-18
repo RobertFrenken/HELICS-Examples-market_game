@@ -7,6 +7,8 @@ import tempfile
 
 from python.market_game_downstream.rl.agents.policies import PriceAwarePolicy
 from python.market_game_downstream.rl.export import (
+    EXPORTABLE_PPO_PROFILE,
+    ExportProfile,
     SubmissionValidationError,
     ValidationReport,
     policy_to_compute_demand,
@@ -14,7 +16,6 @@ from python.market_game_downstream.rl.export import (
     validate_submission_file,
 )
 from python.market_game_downstream.rl.export.export_rllib_checkpoint import render_submission_source
-from python.market_game_downstream.rl.export_profiles import EXPORTABLE_PPO_PROFILE, ExportProfile
 
 
 def assert_valid_report(report: ValidationReport) -> None:

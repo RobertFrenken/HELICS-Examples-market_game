@@ -1,6 +1,7 @@
 """Submission export and validation helpers."""
 
 from .export_policy import FunctionSubmissionPolicy, policy_to_compute_demand
+from .profiles import EXPORTABLE_PPO_PROFILE, ExportProfile
 from .validators import (
     SubmissionValidationError,
     ValidationReport,
@@ -10,6 +11,8 @@ from .validators import (
 )
 
 __all__ = [
+    "EXPORTABLE_PPO_PROFILE",
+    "ExportProfile",
     "FunctionSubmissionPolicy",
     "SubmissionValidationError",
     "ValidationReport",

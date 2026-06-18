@@ -1,11 +1,11 @@
-"""Shared contracts for competition-exportable RL policies."""
+"""Training/export contracts for standalone competition submissions."""
 
 from __future__ import annotations
 
 from dataclasses import dataclass
 
-from .agents.observations import ObservationMode
-from .export.validators import MAX_SOURCE_BYTES
+from python.market_game_downstream.rl.agents.observations import ObservationMode
+from python.market_game_downstream.rl.export.validators import MAX_SOURCE_BYTES
 
 
 @dataclass(frozen=True)

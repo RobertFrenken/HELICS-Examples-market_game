@@ -5,17 +5,31 @@ shared market-game simulator.
 
 Keep it small:
 
-- `agents/`: hand-authored baseline policies and legal observation features.
-- `envs/`: dependency-free environment plus the optional Gymnasium adapter.
-- `rewards.py`: training reward calculation and optional terminal shaping.
-- `training/`: RLlib training entry point.
-- `export_profiles.py`: shared contract for models that can become standalone
-  submissions.
-- `scenarios.py`: built-in evaluation/training scenarios.
+- `agents/`: action mappings, hand-authored baseline policies, and legal
+  observation features.
+- `envs/`: dependency-free environment, scenario builders, and the optional
+  Gymnasium adapter.
+- `training/`: reward shaping, RLlib primitives, and the training CLI.
+- `export/`: export profiles, validation, and policy-to-function adapters for
+  standalone submissions.
 - `evaluate.py`: the one CSV evaluator for scenarios and standalone
   `compute_demand(...)` submissions.
-- `export/`: validation and policy-to-function adapters for standalone
-  submissions.
+
+## Agent Grammar
+
+The agent refactor uses a controller-centered grammar:
+
+```text
+legal percept + state/belief -> controller -> semantic market action -> market load
+```
+
+Preset `compute_demand(...)` houses remain supported, but new agent code should
+prefer `MarketAgent`, `MarketPercept`, controller classes, semantic market
+actions, and `MarketActionProjector`. RL policies fit as learned controllers:
+they may use feature extractors, neural models, and action decoders internally,
+while training algorithms and reward shaping stay in `training/`.
+
+See `agents/REFRACTOR.md` for the target end state and migration plan.
 
 Install training dependencies for the downstream RL workflow:
 

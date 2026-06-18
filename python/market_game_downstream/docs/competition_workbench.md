@@ -29,13 +29,14 @@ that data at runtime.
 
 ## Weekly Scenarios
 
-`python.market_game_downstream.rl.scenarios` provides small scenario builders
+`python.market_game_downstream.rl.envs.scenarios` provides small scenario builders
 for local evaluation:
 
 - `stock_example_scenario()`: parity scenario for the current example houses.
 - `weekly_training_scenarios(seed=...)`: baseline, new-profile, mixed, and
   chaotic-house curricula.
-- `evaluate_curriculum(seed=...)`: CSV-friendly summary rows.
+
+`python.market_game_downstream.rl.evaluate` owns CSV-friendly evaluation rows.
 
 The weekly helpers are intentionally lightweight. They are not predictions of
 the official competition schedule; they are local stress tests for strategies.

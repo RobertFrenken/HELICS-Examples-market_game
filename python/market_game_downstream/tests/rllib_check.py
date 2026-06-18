@@ -8,14 +8,13 @@ from unittest.mock import patch
 
 from python.market_game_downstream.rl.agents.observations import ObservationMode
 from python.market_game_downstream.rl.export.validators import MAX_SOURCE_BYTES, validate_submission_file
-from python.market_game_downstream.rl.scenarios import (
+from python.market_game_downstream.rl.envs.scenarios import scenario_by_name, weekly_training_scenarios
+from python.market_game_downstream.rl.evaluate import (
     evaluate_scenario,
-    scenario_by_name,
     submitted_function_policy_factory,
-    weekly_training_scenarios,
 )
+from python.market_game_downstream.rl.training.rllib import train
 from python.market_game_downstream.rl.training.train import main as train_cli_main
-from python.market_game_downstream.rl.training.train_rllib import train
 
 
 def run_rllib_smoke_check() -> None:
