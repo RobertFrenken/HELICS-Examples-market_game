@@ -7,7 +7,7 @@ from pathlib import Path
 import tomllib
 from typing import Any
 
-from python.market_game_downstream.rl.agents.observations import ObservationMode
+from python.market_game_downstream.rl.observations import ObservationMode
 from python.market_game_downstream.rl.envs.scenarios import format_scenario_choices
 from python.market_game_downstream.rl.evaluate import (
     CSV_COLUMNS,

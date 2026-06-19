@@ -4,15 +4,15 @@ from __future__ import annotations
 
 from gymnasium.utils.env_checker import check_env
 
-from python.market_game_downstream.rl.agents.observations import (
+from python.market_game_downstream.rl.observations import (
     ObservationMode,
     observation_schema,
 )
-from python.market_game_downstream.rl.agents.policies import (
+from python.market_game_downstream.rl.adapters.policies import (
     FlattenDemandPolicy,
     PriceAwarePolicy,
 )
-from python.market_game_downstream.rl.agents.action_spaces import (
+from python.market_game_downstream.rl.envs.action_spaces import (
     ContinuousNormalizedDeltaActionSpace,
     IntegerBatteryDeltaActionSpace,
 )

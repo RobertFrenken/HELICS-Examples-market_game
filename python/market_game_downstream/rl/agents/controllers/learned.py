@@ -6,17 +6,16 @@ from dataclasses import dataclass
 import math
 from typing import Protocol
 
-from ..actions import (
+from ..primitives import (
     BatteryDelta,
     BatteryPosture,
-    BatteryPostureAction,
     MarketAction,
     TargetLoad,
 )
-from ..experiences import Observation
-from ..interfaces import AgentState, BaseController, FeatureExtractor
-from ..observations import PriceHistoryFeatureExtractor
-from ..percepts import MarketPercept
+from ...observations import PriceHistoryFeatureExtractor
+from ..primitives import MarketPercept
+
+Observation = list[float]
 
 
 class VectorModel(Protocol):
@@ -37,15 +36,15 @@ class ActionDecoder(Protocol):
 class BatteryPostureIndexDecoder:
     """Decode a 3-action index into a semantic battery posture action."""
 
-    def decode(self, output: object, percept: MarketPercept) -> BatteryPostureAction:
+    def decode(self, output: object, percept: MarketPercept) -> BatteryPosture:
         del percept
         index = int(_scalar_or_argmax(output))
         if index == 0:
-            return BatteryPostureAction(BatteryPosture.DISCHARGE)
+            return BatteryPosture.DISCHARGE
         if index == 1:
-            return BatteryPostureAction(BatteryPosture.NEUTRAL)
+            return BatteryPosture.NEUTRAL
         if index == 2:
-            return BatteryPostureAction(BatteryPosture.CHARGE)
+            return BatteryPosture.CHARGE
         raise ValueError(f"battery posture index must be 0, 1, or 2; got {index!r}")
 
 
@@ -79,10 +78,10 @@ class TargetLoadDecoder:
 
 
 @dataclass
-class VectorController(BaseController[MarketAction]):
-    """Controller that owns feature extraction, model inference, and decoding."""
+class VectorController:
+    """object that owns feature extraction, model inference, and decoding."""
 
-    feature_extractor: FeatureExtractor
+    feature_extractor: object
     model: VectorModel
     action_decoder: ActionDecoder
 
@@ -97,7 +96,7 @@ class VectorController(BaseController[MarketAction]):
         if reset is not None:
             reset()
 
-    def decide(self, percept: MarketPercept, state: AgentState) -> MarketAction:
+    def decide(self, percept: MarketPercept, state: object) -> MarketAction:
         observation = self.feature_extractor.encode(percept, state)
         output = self.model.predict(observation)
         return self.action_decoder.decode(output, percept)
@@ -129,7 +128,7 @@ class TinyTanhController(VectorController):
         b1: list[float],
         w2: list[list[float]],
         b2: list[float],
-        feature_extractor: FeatureExtractor | None = None,
+        feature_extractor: object | None = None,
         action_decoder: ActionDecoder | None = None,
     ) -> None:
         super().__init__(

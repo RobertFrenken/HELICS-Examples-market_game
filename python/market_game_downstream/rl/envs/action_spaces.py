@@ -3,18 +3,27 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import Protocol
 
-from .actions import BatteryDelta, BatteryPosture, BatteryPostureAction
-from .percepts import MarketPercept
+from ..agents.primitives import BatteryDelta, BatteryPosture
+from ..agents.primitives import MarketAction
+from ..agents.primitives import MarketPercept
+
+
+class LearnerActionSpace(Protocol):
+    """Decode learner actions into semantic market actions for environments."""
+
+    def decode(self, action: object, percept: MarketPercept) -> MarketAction:
+        """Return the semantic market action represented by one learner action."""
 
 
 @dataclass(frozen=True)
 class DiscreteBatteryPostureActionSpace:
     """Three-action smoke/debug baseline for battery posture."""
 
-    def decode(self, action: object, percept: MarketPercept) -> BatteryPostureAction:
+    def decode(self, action: object, percept: MarketPercept) -> BatteryPosture:
         del percept
-        return BatteryPostureAction(BatteryPosture(action))
+        return BatteryPosture(action)
 
 
 @dataclass(frozen=True)

@@ -23,12 +23,11 @@ from .controllers import (
     TinyTanhController,
     VolatilitySeekingController,
 )
-from .observations import (
+from ..observations import (
     InferenceFeatureExtractor,
     LocalFeatureExtractor,
     PriceHistoryFeatureExtractor,
 )
-from .projectors import MarketActionProjector
 from .state import DictAgentState, InferenceBeliefState, NoAgentState
 
 CONTROLLER_TYPES = {
@@ -43,10 +42,6 @@ CONTROLLER_TYPES = {
     "rolling_threshold": RollingThresholdController,
     "tiny_tanh": TinyTanhController,
     "volatility_seeking": VolatilitySeekingController,
-}
-
-ACTION_PROJECTOR_TYPES = {
-    "market_action": MarketActionProjector,
 }
 
 FEATURE_EXTRACTOR_TYPES = {
@@ -77,12 +72,6 @@ def build_agent(config: Mapping[str, Any]) -> MarketAgent:
 
     name = str(agent_config.get("name", "MarketAgent"))
     controller = _build_controller(agent_config)
-    action_projector = _build_optional_component(
-        agent_config,
-        "action_projector",
-        ACTION_PROJECTOR_TYPES,
-        default=MarketActionProjector(),
-    )
     state = _build_optional_component(
         agent_config,
         "state",
@@ -92,7 +81,6 @@ def build_agent(config: Mapping[str, Any]) -> MarketAgent:
     return MarketAgent(
         name=name,
         controller=controller,
-        action_projector=action_projector,
         state=state,
     )
 

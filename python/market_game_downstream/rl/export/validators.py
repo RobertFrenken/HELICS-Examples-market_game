@@ -14,7 +14,7 @@ from python.market_game_downstream.core.simulator import (
     MarketScenario,
     run_scenario,
 )
-from python.market_game_downstream.rl.agents.policies import (
+from python.market_game_downstream.rl.adapters.policies import (
     FollowDemandPolicy,
     PriceAwarePolicy,
 )

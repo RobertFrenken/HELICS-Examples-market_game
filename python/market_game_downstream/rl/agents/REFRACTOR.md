@@ -46,9 +46,8 @@ multi-agent environments, and control-oriented libraries is:
   actions.
 - `Action`: the semantic choice made by the agent.
 - `Reward` / `Objective` / `PerformanceMeasure`: evaluates behavior.
-- `Experience` / `Transition`: optional record used by learning rules.
 - `Learner` / `Optimizer`: optional component that updates controller
-  parameters from experience.
+  parameters from environment transitions or rollout data.
 - `WorldModel`: optional model of environment dynamics, useful for planning or
   model-based control.
 
@@ -83,30 +82,16 @@ Design justification:
 
 ## Amended Target Primitives
 
-Use these as the durable public grammar:
+Use these as the durable public grammar. These are structural method contracts,
+not exported base classes or required inheritance:
 
 ```python
-class Controller(Protocol):
-    def decide(self, percept: MarketPercept, state: AgentState) -> MarketAction:
-        ...
-
-
-class AgentState(Protocol):
-    def reset(self) -> None:
-        ...
-
-
-class Learner(Protocol):
-    def update(self, experience: Experience) -> None:
-        ...
-
-
-class FeatureExtractor(Protocol):
-    def encode(self, percept: MarketPercept, state: AgentState) -> Observation:
-        ...
+controller.decide(percept: MarketPercept, state: object) -> MarketAction
+state.reset() -> None
+feature_extractor.encode(percept: MarketPercept, state: object) -> list[float]
 ```
 
-`FeatureExtractor` is intentionally lower-level than `Controller`. Hardcoded
+Feature extraction is intentionally lower-level than controller decision logic. Hardcoded
 controllers should be able to decide directly from `MarketPercept` without
 being forced through a numeric observation vector. Learned/vector controllers
 can compose a feature extractor internally.
@@ -114,10 +99,6 @@ can compose a feature extractor internally.
 Use semantic market actions instead of raw floats where possible:
 
 ```python
-class FollowDemand:
-    ...
-
-
 class BatteryDelta:
     kwh: float
 
@@ -126,8 +107,10 @@ class TargetLoad:
     load: float
 
 
-class BatteryPostureAction:
-    posture: BatteryPosture
+class BatteryPosture(Enum):
+    DISCHARGE = -1
+    NEUTRAL = 0
+    CHARGE = 1
 ```
 
 The market-load projection is still needed, but it is an implementation
@@ -135,45 +118,45 @@ boundary from semantic action to simulator ABI, not the primary concept.
 
 ## Current Shape
 
-The current `agents` package already contains useful pieces:
+The `agents` package now contains the durable runtime grammar:
 
-- `observations.py`: legal feature construction for vector-based controllers.
-- `actions.py`: semantic market actions emitted by controllers.
-- `action_spaces.py`: learner action spaces used by RL/Gym adapters.
-- `policies.py`: simulator-facing `compute_demand(...)` adapters over
-  controllers.
-- `callables.py`: adapters around the official `compute_demand(...)` shape.
+- `primitives.py`: legal market input, lean semantic market actions, and
+  model-agnostic controller/state/projector/feature-extractor protocols.
+- `compose.py`: `MarketAgent`, the small controller/projector composer.
+- `projectors.py`: semantic market action to simulator market-load projection.
+- `registry.py`: declarative construction of composed agents.
+- `controllers/`: hand-written, inference, threshold, and learned/vector
+  controller implementations.
 
-The remaining ownership boundary is learned inference. Learned/vector
-controllers should own their feature extractor and action decoder internally;
-training algorithms, replay buffers, value functions, and reward shaping stay
-outside `agents/`.
+Non-core surfaces live outside `agents/`:
+
+- `rl/adapters/callables.py`: official `compute_demand(...)` callable helpers.
+- `rl/adapters/policies.py`: simulator-facing `MarketAgent` factories.
+- `rl/envs/action_spaces.py`: Gym/RL learner action decoders.
+
+Learned/vector controllers own their feature extractor and action decoder
+internally; training algorithms, replay buffers, value functions, reward
+shaping, and learner action spaces stay outside `agents/`.
 
 ## Optional Capabilities
 
 Do not force every strategy to be learnable or trainable. Model those as
-optional capabilities.
+optional capabilities. In Python, these are ordinary structural methods.
 
 ```python
-class Tunable(Protocol):
-    def get_params(self) -> dict[str, object]:
-        ...
-
-    def set_params(self, **params: object) -> None:
-        ...
-
-
-class Trainable(Protocol):
-    def update(self, transition: Transition) -> None:
-        ...
+controller.get_params() -> dict[str, object]
+controller.set_params(**params: object) -> None
+controller.update(transition: object) -> None
 ```
 
 Examples:
 
-- `FollowDemandController`: implements only `Controller`.
-- `RollingThresholdController`: implements `Controller` and `Tunable`.
-- `TorchPolicyController`: implements `Controller`, `Tunable`, and maybe
-  `Trainable`.
+- `FollowDemandController`: exposes `decide(...)` and emits
+  `TargetLoad(percept.base_demand)`.
+- `RollingThresholdController`: exposes `decide(...)`, `get_params(...)`, and
+  `set_params(...)`.
+- `TorchPolicyController`: may expose `decide(...)`, tunable methods, and maybe
+  `update(...)`.
 - `RLlibController`: likely wraps inference only; RLlib owns training.
 
 This keeps "learnable parameters" agnostic. They may be thresholds, reserves,
@@ -189,14 +172,12 @@ the official policy ABI.
 @dataclass
 class MarketAgent:
     name: str
-    controller: Controller
-    action_projector: ActionProjector
-    state: AgentState = field(default_factory=NoAgentState)
+    controller: object
+    state: object = field(default_factory=NoAgentState)
 
     def reset(self) -> None:
         self.state.reset()
         reset_if_supported(self.controller)
-        reset_if_supported(self.action_projector)
 
     def compute_demand(
         self,
@@ -214,7 +195,7 @@ class MarketAgent:
             price_history=price_history,
         )
         action = self.controller.decide(percept, self.state)
-        return self.action_projector.market_load(action, percept)
+        return project_market_load(action, percept)
 ```
 
 The composer should remain small. It should not know whether the controller is
@@ -225,15 +206,10 @@ hardcoded, tuned, optimized, or learned.
 ```text
 agents/
   __init__.py
-  percepts.py         # MarketPercept
-  actions.py          # semantic MarketAction classes
-  action_spaces.py    # learner action spaces for RL/Gym adapters
-  experiences.py      # Experience/Transition records
+  primitives.py       # MarketPercept, semantic actions, structural protocols
   state.py            # NoAgentState, DictAgentState, inference beliefs
-  interfaces.py       # Controller, ActionProjector, AgentState, Tunable, Trainable
   compose.py          # MarketAgent
   features.py         # legal domain feature helpers
-  observations.py     # vector feature builders for learned controllers
   projectors.py       # semantic market action -> proposed market load
   registry.py         # declarative construction from dict/TOML
   controllers/
@@ -242,6 +218,12 @@ agents/
     thresholds.py    # price-aware, rolling-price, noisy-threshold
     inference.py     # legal inference and belief-driven controllers
     learned.py       # wrappers around learned/vector controller implementations
+    observations.py  # vector feature builders for learned controllers
+adapters/
+  callables.py       # official compute_demand(...) callable helpers
+  policies.py        # simulator-facing MarketAgent factories
+envs/
+  action_spaces.py   # learner action spaces for RL/Gym adapters
 ```
 
 ## Current Migration Status
@@ -249,54 +231,57 @@ agents/
 The package is now structurally aligned with the target grammar:
 
 ```text
-MarketPercept + AgentState -> Controller -> MarketAction -> MarketActionProjector -> market load
+MarketPercept + AgentState -> Controller -> MarketAction -> project_market_load -> market load
 ```
 
 Completed:
 
-- `MarketPercept` lives in `percepts.py`; `MarketContext` and `contexts.py` are
-  removed.
-- Semantic market actions live in `actions.py`; `market_actions.py` is removed.
+- `MarketPercept`, semantic market actions, and structural protocols live in
+  `primitives.py`; `MarketContext`, `contexts.py`, `market_actions.py`, and the
+  old split `actions.py`/`percepts.py`/`interfaces.py` files are removed.
 - `MarketAgent` is controller-only. The old `Observer -> Strategy -> Actuator`
   composition path is removed.
 - `strategies/`, `observers.py`, and `actuators.py` are removed.
+- `action_spaces.py`, `callables.py`, and `policies.py` are moved out of
+  `agents/` to their adapter and environment homes.
 - Baseline, threshold, noisy, inference, oscillating, invalid-demand, and
   volatility-seeking decision logic lives under `controllers/`.
-- `policies.py` is a simulator-facing `compute_demand(...)` adapter layer over
-  `MarketAgent` and controller instances.
+- `rl/adapters/policies.py` exposes simulator-facing `MarketAgent` factories.
 - Learned/vector inference has a controller surface in `controllers/learned.py`:
   feature extractor + vector model + action decoder -> semantic `MarketAction`.
-- Feature extractors in `observations.py` encode directly from `MarketPercept`
-  and `AgentState`; there is no separate observation context value object.
+- Feature extractors in `rl/envs/observations.py` encode directly from
+  `MarketPercept` and state; there is no separate observation context
+  value object.
 - Inference memory lives in `state.py` as `InferenceBeliefState` and is passed
   through `MarketAgent.state`.
-- RL/Gym learner action spaces in `action_spaces.py` decode learner outputs to
-  semantic market actions. Projection to market load is owned by
-  `MarketActionProjector`.
+- RL/Gym learner action spaces in `rl/envs/action_spaces.py` decode learner
+  outputs to semantic market actions. Projection to market load is owned by
+  `project_market_load`.
 - `registry.py` builds controllers, nested feature extractors, nested action
-  decoders, action projectors, and state objects from dictionaries.
+  decoders, and state objects from dictionaries.
 
 Known stale surfaces after the structural migration:
 
-- Some tests and smoke checks still assume learner action spaces expose
-  `market_load(...)`; they need to be updated to decode actions and project
-  through `MarketActionProjector`.
 - Export code still renders a standalone policy function directly instead of
-  sharing the new `TinyTanhController`/decoder path.
-- Training code still deals primarily in Gym/RLlib environment actions rather
-  than explicitly exporting or evaluating controller objects.
+  sharing the new `TinyTanhController`/decoder path. The exporter now exposes a
+  `build_tiny_tanh_agent(...)` parity path, but the rendered submission remains
+  standalone for validator compatibility.
+- Training code still deals primarily in Gym/RLlib environment actions. CSV
+  evaluation can now score declarative `MarketAgent` configs directly via
+  `--agent-config`, but training-time evaluation still reports raw RLlib
+  environment episodes.
 
 Remaining architecture work:
 
 1. Update export/runtime inference so checkpoint-derived policies use or mirror
    `TinyTanhController`, `PriceHistoryFeatureExtractor`, and
    `BatteryPostureIndexDecoder`.
-2. Make evaluation/training boundaries explicit about whether they are handling
-   a controller, a `MarketAgent`, or the standalone `compute_demand(...)` ABI.
-3. Update tests and smoke checks to the new action-space decode/projector split.
-4. Decide whether `policies.py` remains as the long-term simulator ABI adapter
-   or whether scenario construction should move directly to declarative
-   `MarketAgent` configs.
+2. Continue making training boundaries explicit about whether they are handling
+   a controller, a `MarketAgent`, raw learner actions, or the standalone
+   `compute_demand(...)` ABI.
+3. Decide whether `rl/adapters/policies.py` remains as the long-term simulator
+   ABI adapter or whether scenario construction should move directly to
+   declarative `MarketAgent` configs.
 
 ## Target End State
 
@@ -306,31 +291,31 @@ training-library details to adapter modules.
 ```text
 agents/
   __init__.py
-  percepts.py          # MarketPercept
-  actions.py           # semantic MarketAction classes
+  primitives.py        # MarketPercept, semantic actions, structural protocols
   controllers/
     __init__.py
     baselines.py       # follow demand, flatten demand, full cycle
     thresholds.py      # price-aware, rolling-price, noisy-threshold
     inference.py       # legal inference and belief-driven controllers
     learned.py         # wrappers around learned controller implementations
+    observations.py    # vector encodings owned by learned controllers
   state.py             # NoAgentState, DictAgentState, inference beliefs
   projectors.py        # MarketAction -> proposed market load
   compose.py           # MarketAgent
   features.py          # reusable legal feature helpers
-  observations.py      # vector encodings for learned/RL controllers
   registry.py          # declarative construction
 ```
 
 Consolidation targets:
 
-- `policies.py` exposes simulator-facing `compute_demand(...)` adapters over
-  controllers; controller logic lives under `controllers/`.
+- `rl/adapters/policies.py` exposes simulator-facing `compute_demand(...)`
+  adapters over controllers; controller logic lives under `controllers/`.
 - `strategies/` is removed; useful classes moved to `controllers/`.
-- `observers.py` is removed; vector encodings stay in `observations.py`.
-- `actuators.py` is removed; semantic actions live in `actions.py`,
+- `observers.py` is removed; vector encodings live with learned-controller
+  support in `rl/observations.py`.
+- `actuators.py` is removed; semantic actions live in `primitives.py`,
   projection lives in `projectors.py`, and RL/Gym learner actions live in
-  `action_spaces.py`.
+  `rl/envs/action_spaces.py`.
 - `MarketContext` is removed; callers use `MarketPercept`.
 - `Observer`, `Strategy`, and `Actuator` are no longer public primitives.
 
@@ -346,7 +331,6 @@ MarketAgent
     feature_extractor: MarketPercept -> Observation
     model: Observation -> encoded action/logits/value/etc.
     action_decoder: model output -> MarketAction
-  action_projector = MarketActionProjector
   state = InferenceBeliefState / NoAgentState
   learner = PPO/DQN/etc. training algorithm, optional and usually outside runtime
   objective = reward function used during training
@@ -361,15 +345,15 @@ MarketPercept
   -> learned model / policy network
   -> action decoder
   -> semantic MarketAction
-  -> MarketActionProjector
+  -> project_market_load
   -> proposed market load
 ```
 
 Training path:
 
 ```text
-Experience or vector Transition
-  -> learner/optimizer
+RL/Gym environment transition
+  -> training algorithm
   -> updated controller parameters
 ```
 
@@ -404,9 +388,6 @@ cheap_ratio = 0.94
 expensive_ratio = 1.08
 reserve = 4.0
 
-[agent.action_projector]
-type = "market_action"
-
 [agent.state]
 type = "inference_belief"
 ```
@@ -421,19 +402,19 @@ agent = MarketAgent(
         expensive_ratio=1.08,
         reserve=4.0,
     ),
-    action_projector=MarketActionProjector(),
 )
 ```
 
 ## Migration Plan
 
-1. Add `MarketPercept`, semantic `MarketAction` classes, `Controller`, and
-   `ActionProjector` without changing existing behavior.
-2. Migrate preset `compute_demand` policies to controller-backed wrappers,
+1. Add `MarketPercept` and semantic `MarketAction` classes in `primitives.py`
+   without changing existing behavior.
+2. Migrate preset `compute_demand` policies to controller-backed factories,
    starting with the simplest baselines.
-3. Keep `observations.py` as vector feature construction for learned/vector
-   controllers, not as a mandatory step for every agent.
-4. Keep learner action spaces for Gym/RL integration under `action_spaces.py`.
+3. Keep `rl/envs/observations.py` as vector feature construction for
+   learned/vector controllers, not as a mandatory step for every agent.
+4. Keep learner action spaces for Gym/RL integration under
+   `rl/envs/action_spaces.py`.
 5. Add registry support for declarative controller/projector construction.
 6. Update environment/training code to depend on composed agents where useful,
    while preserving the simulator-facing `HousePolicy` and `compute_demand(...)`

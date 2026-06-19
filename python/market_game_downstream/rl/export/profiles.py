@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from python.market_game_downstream.rl.agents.observations import ObservationMode
+from python.market_game_downstream.rl.observations import ObservationMode
 from python.market_game_downstream.rl.export.validators import MAX_SOURCE_BYTES
 
 

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 from pathlib import Path
+import tempfile
 
 from python.market_game_downstream.core import run_scenario
 from python.market_game_downstream.rl.evaluate import (
@@ -22,6 +23,7 @@ def run_scenario_smoke_check() -> None:
     check_stock_scenario_execution()
     check_builtin_scenario_catalog()
     check_submission_evaluation_path()
+    check_composed_agent_evaluation_path()
     check_seed_helper()
 
 
@@ -50,8 +52,8 @@ def check_builtin_scenario_catalog() -> None:
         "week_3_mixed_population",
         "week_4_chaotic_houses",
     ]
-    assert loaded[1].policies()[-1].seed == 3
-    assert loaded[2].policies()[2].seed == 4
+    assert loaded[1].policies()[-1].name == "NoisyThresholdHouse"
+    assert loaded[2].policies()[2].name == "NoisyThresholdHouse"
 
     duplicate_names = CompetitionScenario(
         name="duplicate_policy_names",
@@ -71,6 +73,8 @@ def check_submission_evaluation_path() -> None:
             submission=example_submission_path(),
             submission_name="OnlySubmittedHouse",
             only_submission=True,
+            agent_config=None,
+            agent_name=None,
             stock=False,
             scenario="week_1_baselines",
             seed=3,
@@ -79,6 +83,40 @@ def check_submission_evaluation_path() -> None:
     )
     assert len(rows) == 1
     assert rows[0]["agent"] == "OnlySubmittedHouse"
+    assert rows[0]["clamps"] == "0"
+
+
+def check_composed_agent_evaluation_path() -> None:
+    with tempfile.TemporaryDirectory() as temp_dir:
+        config_path = Path(temp_dir) / "agent.toml"
+        config_path.write_text(
+            "\n".join(
+                [
+                    "[agent]",
+                    'name = "ConfigRollingHouse"',
+                    "",
+                    "[agent.controller]",
+                    'type = "rolling_threshold"',
+                    "reserve = 2.0",
+                ]
+            ),
+            encoding="utf-8",
+        )
+        rows = rows_for_args(
+            argparse.Namespace(
+                submission=None,
+                submission_name="SubmittedHouse",
+                only_submission=True,
+                agent_config=config_path,
+                agent_name="ComposedRollingHouse",
+                stock=False,
+                scenario="week_1_baselines",
+                seed=3,
+                seeds=None,
+            )
+        )
+    assert len(rows) == 1
+    assert rows[0]["agent"] == "ComposedRollingHouse"
     assert rows[0]["clamps"] == "0"
 
 

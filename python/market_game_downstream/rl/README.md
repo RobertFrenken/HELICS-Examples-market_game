@@ -25,7 +25,7 @@ legal percept + state/belief -> controller -> semantic market action -> market l
 
 Preset `compute_demand(...)` houses remain supported as simulator adapters over
 controllers. Agent code uses `MarketAgent`, `MarketPercept`, controller
-classes, semantic market actions, and `MarketActionProjector`. RL policies fit
+classes, semantic market actions, and `project_market_load`. RL policies fit
 as learned controllers in `agents/controllers/learned.py`: they own feature
 extractors, vector models, and action decoders internally, while training
 algorithms and reward shaping stay in `training/`.

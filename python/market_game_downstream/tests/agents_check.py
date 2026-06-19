@@ -3,17 +3,16 @@
 from __future__ import annotations
 
 from python.market_game_downstream.core import DEFAULT_CONFIG
-from python.market_game_downstream.rl.agents import (
-    BaseController,
+from python.market_game_downstream.rl.agents.compose import MarketAgent
+from python.market_game_downstream.rl.agents.controllers import (
     FlattenDemandController,
     FollowDemandController,
     FullCycleController,
-    MarketAgent,
     PriceAwareController,
     RollingThresholdController,
-    build_agent,
 )
-from python.market_game_downstream.rl.agents.policies import (
+from python.market_game_downstream.rl.agents.registry import build_agent
+from python.market_game_downstream.rl.adapters.policies import (
     FlattenDemandPolicy,
     FullCyclePolicy,
     RollingPricePolicy,
@@ -24,11 +23,14 @@ def run_agents_check() -> None:
     demand = DEFAULT_CONFIG.demand_profile
     price_history = [DEFAULT_CONFIG.initial_price]
 
-    assert issubclass(FollowDemandController, BaseController)
-    assert issubclass(FlattenDemandController, BaseController)
-    assert issubclass(FullCycleController, BaseController)
-    assert issubclass(PriceAwareController, BaseController)
-    assert issubclass(RollingThresholdController, BaseController)
+    for controller_type in (
+        FollowDemandController,
+        FlattenDemandController,
+        FullCycleController,
+        PriceAwareController,
+        RollingThresholdController,
+    ):
+        assert callable(getattr(controller_type(), "decide"))
 
     controller_agent = MarketAgent(
         name="controller_follow",
@@ -77,7 +79,6 @@ def run_agents_check() -> None:
             "agent": {
                 "name": "declarative_price_aware",
                 "controller": {"type": "price_aware"},
-                "action_projector": {"type": "market_action"},
             }
         }
     )

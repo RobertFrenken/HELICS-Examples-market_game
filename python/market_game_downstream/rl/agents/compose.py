@@ -4,14 +4,9 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-from .interfaces import (
-    ActionProjector,
-    AgentState,
-    Controller,
-    reset_if_supported,
-)
-from .percepts import MarketPercept
-from .projectors import MarketActionProjector
+from .primitives import reset_if_supported
+from .primitives import MarketPercept
+from .projectors import project_market_load
 from .state import NoAgentState
 
 
@@ -20,14 +15,12 @@ class MarketAgent:
     """Compose a controller and action projector behind compute_demand(...)."""
 
     name: str
-    controller: Controller
-    action_projector: ActionProjector = field(default_factory=MarketActionProjector)
-    state: AgentState = field(default_factory=NoAgentState)
+    controller: object
+    state: object = field(default_factory=NoAgentState)
 
     def reset(self) -> None:
         self.state.reset()
         reset_if_supported(self.controller)
-        reset_if_supported(self.action_projector)
 
     def compute_demand(
         self,
@@ -45,4 +38,4 @@ class MarketAgent:
             price_history=price_history,
         )
         action = self.controller.decide(percept, self.state)
-        return float(self.action_projector.market_load(action, percept))
+        return float(project_market_load(action, percept))

@@ -13,7 +13,7 @@ from python.market_game_downstream.core import (
     MarketScenario,
     demand_profile,
 )
-from python.market_game_downstream.rl.agents.policies import (
+from python.market_game_downstream.rl.adapters.policies import (
     FlattenDemandPolicy,
     FollowDemandPolicy,
     FullCyclePolicy,

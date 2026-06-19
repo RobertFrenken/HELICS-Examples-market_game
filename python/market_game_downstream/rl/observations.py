@@ -6,16 +6,15 @@ import math
 from dataclasses import dataclass, field
 from enum import Enum
 
-from .features import (
+from .agents.features import (
     distance_to_nearest_pricing_threshold,
     estimate_others_average_load,
     invert_price_to_average_load,
     recent_mean,
     recent_volatility,
 )
-from .interfaces import AgentState, BaseFeatureExtractor
-from .percepts import MarketPercept
-from .state import InferenceBeliefState
+from .agents.primitives import MarketPercept
+from .agents.state import InferenceBeliefState
 
 
 class ObservationMode(str, Enum):
@@ -67,27 +66,27 @@ class InferenceFeatures:
 
 
 @dataclass(frozen=True)
-class LocalFeatureExtractor(BaseFeatureExtractor):
+class LocalFeatureExtractor:
     """Encode local legal market percept fields."""
 
-    def encode(self, percept: MarketPercept, state: AgentState) -> list[float]:
+    def encode(self, percept: MarketPercept, state: object) -> list[float]:
         del state
         return build_local_observation(percept)
 
 
 @dataclass(frozen=True)
-class PriceHistoryFeatureExtractor(BaseFeatureExtractor):
+class PriceHistoryFeatureExtractor:
     """Encode local fields plus recent legal price-history summaries."""
 
     window: int = 6
 
-    def encode(self, percept: MarketPercept, state: AgentState) -> list[float]:
+    def encode(self, percept: MarketPercept, state: object) -> list[float]:
         del state
         return build_price_history_observation(percept, window=self.window)
 
 
 @dataclass
-class InferenceFeatureExtractor(BaseFeatureExtractor):
+class InferenceFeatureExtractor:
     """Encode price history plus delayed aggregate-inference features."""
 
     window: int = 6
@@ -96,7 +95,7 @@ class InferenceFeatureExtractor(BaseFeatureExtractor):
     def reset(self) -> None:
         self.last_features = InferenceFeatures()
 
-    def encode(self, percept: MarketPercept, state: AgentState) -> list[float]:
+    def encode(self, percept: MarketPercept, state: object) -> list[float]:
         if not isinstance(state, InferenceBeliefState):
             raise TypeError("InferenceFeatureExtractor requires InferenceBeliefState")
         self.last_features = update_inference_belief(percept, state)

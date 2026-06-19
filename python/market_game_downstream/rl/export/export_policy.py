@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from ..agents.callables import (
+from ..adapters.callables import (
     ComputeDemand,
     ComputeDemandPolicy as ExportablePolicy,
     call_compute_demand,

@@ -5,36 +5,35 @@ from __future__ import annotations
 from dataclasses import dataclass
 import math
 
-from ..actions import BatteryDelta, FollowDemand, TargetLoad
-from ..interfaces import AgentState, BaseController
-from ..percepts import MarketPercept
+from ..primitives import BatteryDelta, TargetLoad
+from ..primitives import MarketPercept
 
 
 @dataclass(frozen=True)
-class FollowDemandController(BaseController[FollowDemand]):
+class FollowDemandController:
     """Passive controller that submits the current base demand."""
 
-    def decide(self, percept: MarketPercept, state: AgentState) -> FollowDemand:
-        del percept, state
-        return FollowDemand()
+    def decide(self, percept: MarketPercept, state: object) -> TargetLoad:
+        del state
+        return TargetLoad(percept.base_demand)
 
 
 @dataclass(frozen=True)
-class InvalidDemandController(BaseController[TargetLoad]):
+class InvalidDemandController:
     """Stress controller that deliberately submits illegal market loads."""
 
     load_offset: float = 100.0
 
-    def decide(self, percept: MarketPercept, state: AgentState) -> TargetLoad:
+    def decide(self, percept: MarketPercept, state: object) -> TargetLoad:
         del state
         return TargetLoad(percept.base_demand + self.load_offset)
 
 
 @dataclass(frozen=True)
-class FlattenDemandController(BaseController[BatteryDelta]):
+class FlattenDemandController:
     """Price-blind controller that uses the battery to flatten own demand."""
 
-    def decide(self, percept: MarketPercept, state: AgentState) -> BatteryDelta:
+    def decide(self, percept: MarketPercept, state: object) -> BatteryDelta:
         del state
         target_demand = sum(percept.demand) / len(percept.demand)
         desired_change = target_demand - percept.base_demand
@@ -58,7 +57,7 @@ class FlattenDemandController(BaseController[BatteryDelta]):
 
 
 @dataclass
-class FullCycleController(BaseController[BatteryDelta]):
+class FullCycleController:
     """Mechanical controller that cycles the battery between full and empty."""
 
     charging: bool = True
@@ -66,7 +65,7 @@ class FullCycleController(BaseController[BatteryDelta]):
     def reset(self) -> None:
         self.charging = True
 
-    def decide(self, percept: MarketPercept, state: AgentState) -> BatteryDelta:
+    def decide(self, percept: MarketPercept, state: object) -> BatteryDelta:
         del state
         if self.charging and percept.battery_charge >= percept.config.battery_capacity:
             self.charging = False
@@ -85,13 +84,13 @@ class FullCycleController(BaseController[BatteryDelta]):
 
 
 @dataclass(frozen=True)
-class OscillatingController(BaseController[BatteryDelta]):
+class OscillatingController:
     """Price-blind controller with sinusoidal charge/discharge swings."""
 
     period: int = 4
     phase: int = 0
 
-    def decide(self, percept: MarketPercept, state: AgentState) -> BatteryDelta:
+    def decide(self, percept: MarketPercept, state: object) -> BatteryDelta:
         del state
         wave = math.sin(2.0 * math.pi * (percept.hour + self.phase) / self.period)
         if wave >= 0.0:
@@ -105,10 +104,10 @@ class OscillatingController(BaseController[BatteryDelta]):
 
 
 @dataclass(frozen=True)
-class VolatilitySeekingController(BaseController[BatteryDelta]):
-    """Controller that tends to amplify recent price movement."""
+class VolatilitySeekingController:
+    """object that tends to amplify recent price movement."""
 
-    def decide(self, percept: MarketPercept, state: AgentState) -> BatteryDelta:
+    def decide(self, percept: MarketPercept, state: object) -> BatteryDelta:
         del state
         previous_prices = percept.price_history[:-1]
         trend = (

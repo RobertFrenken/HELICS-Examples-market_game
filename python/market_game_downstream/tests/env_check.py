@@ -2,15 +2,15 @@
 
 from __future__ import annotations
 
-from python.market_game_downstream.rl.agents.observations import (
+from python.market_game_downstream.rl.observations import (
     OBSERVATION_SCHEMAS,
     ObservationMode,
 )
-from python.market_game_downstream.rl.agents.policies import (
+from python.market_game_downstream.rl.adapters.policies import (
     FlattenDemandPolicy,
     PriceAwarePolicy,
 )
-from python.market_game_downstream.rl.agents.actions import BatteryPosture
+from python.market_game_downstream.rl.agents.primitives import BatteryPosture
 from python.market_game_downstream.rl.envs.env import MarketGameEnv
 from python.market_game_downstream.rl.training.rewards import RewardConfig, market_game_reward
 

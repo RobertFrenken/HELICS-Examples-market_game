@@ -1,4 +1,4 @@
-"""Controller implementations for market-game agents."""
+"""object implementations for market-game agents."""
 
 from .baselines import (
     FlattenDemandController,

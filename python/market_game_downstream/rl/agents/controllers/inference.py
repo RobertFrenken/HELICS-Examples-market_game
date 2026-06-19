@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from ..actions import TargetLoad
+from ..primitives import TargetLoad
 from ..features import (
     distance_to_nearest_pricing_threshold,
     estimate_others_average_load,
@@ -12,18 +12,17 @@ from ..features import (
     recent_mean,
     recent_volatility,
 )
-from ..interfaces import AgentState, BaseController
-from ..percepts import MarketPercept
+from ..primitives import MarketPercept
 from ..state import InferenceBeliefState
 
 
 @dataclass
-class LegalInferenceController(BaseController[TargetLoad]):
+class LegalInferenceController:
     """Infer aggregate pressure from legal delayed prices and own history."""
 
     house_count: int = 3
 
-    def decide(self, percept: MarketPercept, state: AgentState) -> TargetLoad:
+    def decide(self, percept: MarketPercept, state: object) -> TargetLoad:
         belief = self._belief(state)
         previous_prices = percept.price_history[:-1]
         reference = recent_mean(previous_prices, fallback=percept.price, window=6)
@@ -91,7 +90,7 @@ class LegalInferenceController(BaseController[TargetLoad]):
         belief.own_load_history.append(load)
         return TargetLoad(load)
 
-    def _belief(self, state: AgentState) -> InferenceBeliefState:
+    def _belief(self, state: object) -> InferenceBeliefState:
         if not isinstance(state, InferenceBeliefState):
             raise TypeError("LegalInferenceController requires InferenceBeliefState")
         return state

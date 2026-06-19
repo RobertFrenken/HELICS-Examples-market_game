@@ -5,17 +5,21 @@ from __future__ import annotations
 from pathlib import Path
 import tempfile
 
-from python.market_game_downstream.rl.agents.policies import PriceAwarePolicy
+from python.market_game_downstream.rl.adapters.policies import PriceAwarePolicy
 from python.market_game_downstream.rl.export import (
     EXPORTABLE_PPO_PROFILE,
     ExportProfile,
     SubmissionValidationError,
     ValidationReport,
+    load_compute_demand,
     policy_to_compute_demand,
     validate_compute_demand,
     validate_submission_file,
 )
-from python.market_game_downstream.rl.export.export_rllib_checkpoint import render_submission_source
+from python.market_game_downstream.rl.export.export_rllib_checkpoint import (
+    build_tiny_tanh_agent,
+    render_submission_source,
+)
 
 
 def assert_valid_report(report: ValidationReport) -> None:
@@ -71,15 +75,39 @@ def run_export_smoke_check() -> None:
         "w2": [[0.0] * EXPORTABLE_PPO_PROFILE.hidden_size for _ in range(3)],
         "b2": [0.0, 0.0, 0.0],
     }
-    assert len(render_submission_source(tiny_state).encode("utf-8")) < (
-        EXPORTABLE_PPO_PROFILE.max_source_bytes
-    )
+    source = render_submission_source(tiny_state)
+    assert len(source.encode("utf-8")) < EXPORTABLE_PPO_PROFILE.max_source_bytes
+    assert_rendered_tiny_tanh_matches_agent(tiny_state, source)
     try:
         ExportProfile(fcnet_hiddens=(256,)).validate()
     except ValueError as exc:
         assert "source-size" in str(exc)
     else:
         raise AssertionError("oversized export profile was not rejected")
+
+
+def assert_rendered_tiny_tanh_matches_agent(
+    state: dict[str, object],
+    source: str,
+) -> None:
+    agent = build_tiny_tanh_agent(state)
+    with tempfile.TemporaryDirectory() as temp_dir:
+        path = Path(temp_dir) / "tiny_tanh_submission.py"
+        path.write_text(source, encoding="utf-8")
+        compute_demand = load_compute_demand(path)
+
+    demand = [2.0 + (hour % 5) for hour in range(24)]
+    price_history = [0.25, 0.30, 0.27, 0.33]
+    for hour, battery_charge in ((0, 20.0), (7, 5.0), (18, 0.0)):
+        expected = agent.compute_demand(
+            0.33,
+            hour,
+            battery_charge,
+            demand,
+            price_history,
+        )
+        actual = compute_demand(0.33, hour, battery_charge, demand, price_history)
+        assert actual == expected
 
 
 if __name__ == "__main__":

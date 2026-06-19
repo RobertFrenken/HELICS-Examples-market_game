@@ -11,7 +11,9 @@ from typing import Any
 import ray
 from ray.tune.registry import register_env
 
-from python.market_game_downstream.rl.agents.observations import ObservationMode
+from python.market_game_downstream.rl.agents.compose import MarketAgent
+from python.market_game_downstream.rl.agents.controllers import TinyTanhController
+from python.market_game_downstream.rl.observations import ObservationMode
 from python.market_game_downstream.rl.export.profiles import (
     EXPORTABLE_PPO_PROFILE,
     ExportProfile,
@@ -50,6 +52,7 @@ def export_checkpoint(
         observation_mode=profile.observation_mode,
         hidden_size=profile.hidden_size,
     )
+    build_tiny_tanh_agent(state)
     source = render_submission_source(state)
     source_size = len(source.encode("utf-8"))
     if source_size > profile.max_source_bytes:
@@ -61,6 +64,20 @@ def export_checkpoint(
     output_path.write_text(source, encoding="utf-8")
     validate_submission_file(output_path)
     return output_path
+
+
+def build_tiny_tanh_agent(state: dict[str, Any], name: str = "ExportedTinyTanh") -> MarketAgent:
+    """Build the controller-backed runtime agent mirrored by exported source."""
+
+    return MarketAgent(
+        name=name,
+        controller=TinyTanhController(
+            w1=_copy_nested_floats(state["w1"]),
+            b1=_copy_floats(state["b1"]),
+            w2=_copy_nested_floats(state["w2"]),
+            b2=_copy_floats(state["b2"]),
+        ),
+    )
 
 
 def _load_actor_state(
@@ -132,7 +149,7 @@ def _tensor_to_nested_floats(value: Any) -> Any:
 
 
 def render_submission_source(state: dict[str, Any]) -> str:
-    """Render a validator-safe standalone Python submission."""
+    """Render a standalone submission mirroring ``TinyTanhController`` inference."""
 
     return f'''"""Standalone tiny PPO policy exported from RLlib."""
 
@@ -208,6 +225,14 @@ def compute_demand(price, hour, battery_charge, demand, price_history):
 
 def _format_literal(value: Any) -> str:
     return repr(value)
+
+
+def _copy_nested_floats(value: Any) -> list[list[float]]:
+    return [[float(item) for item in row] for row in value]
+
+
+def _copy_floats(value: Any) -> list[float]:
+    return [float(item) for item in value]
 
 
 def main() -> None:

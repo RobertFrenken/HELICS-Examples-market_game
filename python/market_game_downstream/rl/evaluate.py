@@ -4,8 +4,13 @@ from __future__ import annotations
 
 import argparse
 import csv
+import copy
+import json
 from pathlib import Path
 import sys
+import tomllib
+from collections.abc import Mapping
+from typing import Any
 
 from python.market_game_downstream.core import (
     HourRecord,
@@ -13,6 +18,7 @@ from python.market_game_downstream.core import (
     SimulationResult,
     run_scenario,
 )
+from python.market_game_downstream.rl.agents.registry import build_agent
 
 from .export.export_policy import FunctionSubmissionPolicy
 from .export.validators import SubmissionValidationError, validate_submission_file
@@ -85,6 +91,7 @@ def submitted_function_policy_factory(
     path: str | Path,
     name: str = "SubmittedHouse",
 ) -> PolicyFactory:
+    """Build policies from the standalone ``compute_demand(...)`` submission ABI."""
     if not isinstance(name, str) or not name:
         raise ValueError("submitted function policy name must be a non-empty string")
     submission_path = Path(path)
@@ -95,6 +102,51 @@ def submitted_function_policy_factory(
         return FunctionSubmissionPolicy(load_compute_demand(path), name=name)
 
     return factory
+
+
+def composed_agent_policy_factory(
+    config: Mapping[str, Any],
+    name: str | None = None,
+) -> PolicyFactory:
+    """Build fresh ``MarketAgent`` policies from declarative agent primitives."""
+    if name is not None and (not isinstance(name, str) or not name):
+        raise ValueError("composed agent policy name must be a non-empty string")
+    agent_config = copy.deepcopy(dict(config))
+
+    def factory(config: dict[str, Any] = agent_config, name: str | None = name) -> HousePolicy:
+        agent = build_agent(copy.deepcopy(config))
+        if name is not None:
+            agent.name = name
+        return agent
+
+    return factory
+
+
+def agent_config_policy_factory(
+    path: str | Path,
+    name: str | None = None,
+) -> PolicyFactory:
+    """Build policies from a JSON or TOML declarative ``MarketAgent`` config."""
+    return composed_agent_policy_factory(load_agent_config(path), name=name)
+
+
+def load_agent_config(path: str | Path) -> dict[str, Any]:
+    """Load a declarative agent config from JSON or TOML."""
+    config_path = Path(path)
+    try:
+        if config_path.suffix.lower() == ".json":
+            with config_path.open(encoding="utf-8") as config_file:
+                raw_config = json.load(config_file)
+        else:
+            with config_path.open("rb") as config_file:
+                raw_config = tomllib.load(config_file)
+    except OSError as exc:
+        raise SystemExit(f"cannot read agent config {config_path}: {exc}") from exc
+    except (json.JSONDecodeError, tomllib.TOMLDecodeError) as exc:
+        raise SystemExit(f"cannot parse agent config {config_path}: {exc}") from exc
+    if not isinstance(raw_config, dict):
+        raise SystemExit("agent config must be a JSON object or TOML table")
+    return raw_config
 
 
 def price_volatility(prices: list[float]) -> float:
@@ -158,7 +210,7 @@ def _evaluate_selected(
         for row in evaluate_scenario(_scenario_for_args(args, scenario))
     ]
     if args.only_submission:
-        rows = [row for row in rows if row["agent"] == args.submission_name]
+        rows = [row for row in rows if row["agent"] == selected_policy_name(args)]
     return rows
 
 
@@ -166,12 +218,33 @@ def _scenario_for_args(
     args: argparse.Namespace,
     scenario: CompetitionScenario,
 ) -> CompetitionScenario:
-    if not args.submission:
+    submission = getattr(args, "submission", None)
+    agent_config = getattr(args, "agent_config", None)
+    if submission and agent_config:
+        raise SystemExit("--submission and --agent-config are mutually exclusive")
+    if agent_config:
+        return scenario.with_policy_factory(
+            agent_config_policy_factory(agent_config, name=getattr(args, "agent_name", None)),
+            first=True,
+        )
+    if not submission:
         return scenario
     return scenario.with_policy_factory(
-        submitted_function_policy_factory(args.submission, name=args.submission_name),
+        submitted_function_policy_factory(submission, name=args.submission_name),
         first=True,
     )
+
+
+def selected_policy_name(args: argparse.Namespace) -> str:
+    if getattr(args, "agent_config", None):
+        if getattr(args, "agent_name", None):
+            return args.agent_name
+        config = load_agent_config(args.agent_config)
+        agent_config = config.get("agent", config)
+        if isinstance(agent_config, Mapping):
+            return str(agent_config.get("name", "MarketAgent"))
+        return "MarketAgent"
+    return args.submission_name
 
 
 def _parse_seed_list(value: str) -> list[int]:
@@ -203,14 +276,29 @@ def main() -> None:
         help="path to a standalone file defining compute_demand(...)",
     )
     parser.add_argument(
+        "--agent-config",
+        help="path to a JSON/TOML declarative MarketAgent config",
+    )
+    parser.add_argument(
+        "--agent-name",
+        help="override the composed MarketAgent name used in evaluation rows",
+    )
+    parser.add_argument(
         "--submission-name",
         default="SubmittedHouse",
         help="agent name used for --submission rows",
     )
     parser.add_argument(
         "--only-submission",
+        dest="only_submission",
         action="store_true",
         help="with --submission, emit only the submitted policy row",
+    )
+    parser.add_argument(
+        "--only-selected",
+        dest="only_submission",
+        action="store_true",
+        help="emit only the inserted --submission or --agent-config policy row",
     )
     parser.add_argument(
         "--validate-submission",
@@ -221,6 +309,8 @@ def main() -> None:
     if args.list_scenarios:
         print(format_scenario_choices(seed=args.seed))
         return
+    if args.submission and args.agent_config:
+        raise SystemExit("--submission and --agent-config are mutually exclusive")
     if args.validate_submission:
         if not args.submission:
             raise SystemExit("--validate-submission requires --submission")

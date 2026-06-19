@@ -6,7 +6,7 @@ from pathlib import Path
 import tempfile
 from unittest.mock import patch
 
-from python.market_game_downstream.rl.agents.observations import ObservationMode
+from python.market_game_downstream.rl.observations import ObservationMode
 from python.market_game_downstream.rl.export.validators import MAX_SOURCE_BYTES, validate_submission_file
 from python.market_game_downstream.rl.envs.scenarios import scenario_by_name, weekly_training_scenarios
 from python.market_game_downstream.rl.evaluate import (

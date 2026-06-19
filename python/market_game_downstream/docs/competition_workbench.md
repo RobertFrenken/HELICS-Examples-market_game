@@ -12,6 +12,18 @@ compute_demand(price, hour, battery_charge, demand, price_history)
 Everything in this package should help teams produce a better implementation
 of that function. It should not require changes to the official game runtime.
 
+Internally, prefer the composed-agent path for reusable strategy work:
+
+```text
+MarketPercept + AgentState -> Controller -> MarketAction -> market load
+```
+
+`MarketAgent` is the runtime wrapper for that path. The standalone
+`compute_demand(...)` function is the deployment ABI, and Gym/RLlib learner
+actions are training-environment adapter inputs. Keep those surfaces separate:
+learner action spaces decode to semantic actions, controllers make market
+decisions, and projectors convert semantic actions to proposed market load.
+
 ## Data Boundaries
 
 Use these names consistently:
@@ -37,6 +49,18 @@ for local evaluation:
   chaotic-house curricula.
 
 `python.market_game_downstream.rl.evaluate` owns CSV-friendly evaluation rows.
+It can score either a standalone submission file or a declarative composed
+agent config:
+
+```bash
+PYTHONPATH=. python -m python.market_game_downstream.rl.evaluate \
+  --scenario week_1_baselines \
+  --agent-config path/to/agent.toml \
+  --only-selected
+```
+
+The agent config should use the `[agent]` shape documented in
+`rl/agents/REFRACTOR.md`, not the `[training]` shape used by training runs.
 
 The weekly helpers are intentionally lightweight. They are not predictions of
 the official competition schedule; they are local stress tests for strategies.

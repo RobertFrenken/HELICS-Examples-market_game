@@ -6,10 +6,9 @@ from dataclasses import dataclass, field
 import random
 
 from python.market_game_downstream.core import DEFAULT_CONFIG
-from ..actions import BatteryDelta
+from ..primitives import BatteryDelta
 from ..features import recent_mean, recent_volatility
-from ..interfaces import AgentState, BaseController
-from ..percepts import MarketPercept
+from ..primitives import MarketPercept
 
 
 BATTERY_MAX_CHARGE = DEFAULT_CONFIG.max_charge
@@ -17,7 +16,7 @@ BATTERY_MAX_DISCHARGE = DEFAULT_CONFIG.max_discharge
 
 
 @dataclass(frozen=True)
-class PriceAwareController(BaseController[BatteryDelta]):
+class PriceAwareController:
     """Threshold controller with simple price bands and time-of-day reserves."""
 
     def reserve_target(self, hour: int) -> float:
@@ -29,7 +28,7 @@ class PriceAwareController(BaseController[BatteryDelta]):
             return 3.0
         return 0.0
 
-    def decide(self, percept: MarketPercept, state: AgentState) -> BatteryDelta:
+    def decide(self, percept: MarketPercept, state: object) -> BatteryDelta:
         del state
         remaining_capacity = percept.config.battery_capacity - percept.battery_charge
         reserve = self.reserve_target(percept.hour)
@@ -56,7 +55,7 @@ class PriceAwareController(BaseController[BatteryDelta]):
 
 
 @dataclass
-class RollingThresholdController(BaseController[BatteryDelta]):
+class RollingThresholdController:
     """Compare current price to a rolling recent mean and emit battery deltas."""
 
     window: int = 6
@@ -64,7 +63,7 @@ class RollingThresholdController(BaseController[BatteryDelta]):
     expensive_ratio: float = 1.08
     reserve: float = 4.0
 
-    def decide(self, percept: MarketPercept, state: AgentState) -> BatteryDelta:
+    def decide(self, percept: MarketPercept, state: object) -> BatteryDelta:
         del state
         previous_prices = percept.price_history[:-1]
         reference = recent_mean(
@@ -118,7 +117,7 @@ class RollingThresholdController(BaseController[BatteryDelta]):
 
 
 @dataclass
-class NoisyThresholdController(BaseController[BatteryDelta]):
+class NoisyThresholdController:
     """Seeded threshold controller with repeatable per-hour jitter."""
 
     seed: int = 1
@@ -132,7 +131,7 @@ class NoisyThresholdController(BaseController[BatteryDelta]):
     def reset(self) -> None:
         self._rng = random.Random(self.seed)
 
-    def decide(self, percept: MarketPercept, state: AgentState) -> BatteryDelta:
+    def decide(self, percept: MarketPercept, state: object) -> BatteryDelta:
         del state
         remaining_capacity = percept.config.battery_capacity - percept.battery_charge
         cheap_threshold = 0.14 + self._rng.uniform(-self.noise_scale, self.noise_scale)

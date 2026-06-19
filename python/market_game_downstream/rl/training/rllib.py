@@ -16,8 +16,8 @@ import torch
 
 from python.market_game_downstream.core import DEFAULT_CONFIG
 from ..envs.gym_env import GymMarketGameEnv
-from ..agents.observations import ObservationMode
-from ..agents.policies import FlattenDemandPolicy, PriceAwarePolicy
+from ..observations import ObservationMode
+from ..adapters.policies import FlattenDemandPolicy, PriceAwarePolicy
 from .rewards import RewardConfig
 from ..envs.scenarios import scenario_by_name, weekly_training_scenarios
 

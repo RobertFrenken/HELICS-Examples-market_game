@@ -5,21 +5,21 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 
 from python.market_game_downstream.core import DEFAULT_CONFIG, MarketGameConfig
-from ..agents.observations import (
+from ..observations import (
     InferenceFeatures,
     ObservationMode,
     build_observation,
     update_inference_belief,
 )
-from ..agents.percepts import MarketPercept
-from ..agents.policies import FollowDemandPolicy
-from ..agents.callables import call_compute_demand, reset_policy
-from ..agents.action_spaces import (
+from ..agents.primitives import MarketPercept
+from ..adapters.policies import FollowDemandPolicy
+from ..adapters.callables import call_compute_demand, reset_policy
+from ..envs.action_spaces import (
     DEFAULT_ACTION_SPACE,
 )
-from ..agents.interfaces import LearnerActionSpace
+from .action_spaces import LearnerActionSpace
 from ..training.rewards import RewardConfig, market_game_reward
-from ..agents.projectors import MarketActionProjector
+from ..agents.projectors import project_market_load
 from ..agents.state import InferenceBeliefState
 from python.market_game_downstream.core import (
     BatteryState,
@@ -76,7 +76,6 @@ class MarketGameEnv:
         )
         self.observation_mode = ObservationMode(observation_mode)
         self.action_space = action_space
-        self.action_projector = MarketActionProjector()
         self.reward_config = reward_config or RewardConfig(
             final_battery_target=final_battery_target,
             final_battery_penalty=final_battery_penalty,
@@ -136,7 +135,7 @@ class MarketGameEnv:
             house_count=self.house_count,
             config=self.config,
         )
-        own_proposed_load = self.action_projector.market_load(
+        own_proposed_load = project_market_load(
             self.action_space.decode(action, learner_percept),
             learner_percept,
         )

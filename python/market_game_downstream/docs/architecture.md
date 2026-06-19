@@ -47,8 +47,8 @@ The old `market_game_downstream.helics` compatibility notes now live in
 `docs/helics_compatibility.md` and `docs/game_rules.md`; there is no downstream
 HELICS package.
 
-`market_game_downstream.rl.agents.actions` owns semantic market actions emitted
-by controllers. `market_game_downstream.rl.agents.action_spaces` owns learner
+`market_game_downstream.rl.agents.primitives` owns semantic market actions emitted
+by controllers. `market_game_downstream.rl.envs.action_spaces` owns learner
 action spaces for RL/Gym adapters. The simulator and exported submissions still
 see only market load values. Current learner action spaces cover the coarse
 three-posture smoke baseline, integer battery deltas, and continuous normalized
